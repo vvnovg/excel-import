@@ -67,6 +67,10 @@ public final class RowMapper<T> {
                         e.code(),
                         e.getMessage()));
             } catch (Throwable e) {
+                // Пробросить JVM-level ошибки вместо превращения их в ошибки строк
+                if (e instanceof Error) {
+                    throw (Error) e;
+                }
                 errors.add(RowError.conversion(
                         row.excelRowNumber(),
                         plan.binding().displayName(),
