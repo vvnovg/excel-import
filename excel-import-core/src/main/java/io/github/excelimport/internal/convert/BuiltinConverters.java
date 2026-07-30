@@ -21,169 +21,199 @@ public final class BuiltinConverters {
 
     private BuiltinConverters() {}
 
+    // Leaf converters with no dependencies (declared first)
+    private static final CellConverter<String> STRING_CONVERTER = (value, ctx) -> ctx.text(value);
+
+    private static final CellConverter<Long> LONG_CONVERTER = (value, ctx) -> {
+        Double number = numericOrNull(value, ctx);
+        if (number != null) {
+            return toExactLong(number, ctx);
+        }
+        String text = ctx.text(value);
+        if (text == null) {
+            return null;
+        }
+        try {
+            return Long.valueOf(cleanNumber(text));
+        } catch (NumberFormatException e) {
+            throw new ConversionException(
+                    "NOT_INTEGER", "«" + text + "» не является целым числом", e);
+        }
+    };
+
+    private static final CellConverter<BigDecimal> BIG_DECIMAL_CONVERTER = (value, ctx) -> {
+        String text = ctx.text(value);
+        if (text == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(cleanNumber(text).replace(',', '.'));
+        } catch (NumberFormatException e) {
+            throw new ConversionException(
+                    "NOT_NUMBER", "«" + text + "» не является числом", e);
+        }
+    };
+
+    private static final CellConverter<Boolean> BOOLEAN_CONVERTER = (value, ctx) -> {
+        Boolean direct = value.asBoolean();
+        if (direct != null) {
+            return direct;
+        }
+        String text = ctx.text(value);
+        if (text == null) {
+            return null;
+        }
+        Boolean parsed = ctx.booleanWords().parse(text);
+        if (parsed == null) {
+            throw new ConversionException(
+                    "NOT_BOOLEAN",
+                    "«" + text + "» не распознано как логическое значение; допустимо: "
+                            + ctx.booleanWords().trueWords() + " / "
+                            + ctx.booleanWords().falseWords());
+        }
+        return parsed;
+    };
+
+    private static final CellConverter<LocalDateTime> LOCAL_DATE_TIME_CONVERTER =
+            (value, ctx) -> {
+                LocalDateTime serial = value.asLocalDateTime();
+                if (serial != null) {
+                    return serial;
+                }
+                String text = ctx.text(value);
+                if (text == null) {
+                    return null;
+                }
+                return parseTemporal(text, ctx, LocalDateTime::parse, "дату и время");
+            };
+
+    private static final CellConverter<LocalDate> LOCAL_DATE_CONVERTER = (value, ctx) -> {
+        LocalDateTime serial = value.asLocalDateTime();
+        if (serial != null) {
+            return serial.toLocalDate();
+        }
+        String text = ctx.text(value);
+        if (text == null) {
+            return null;
+        }
+        return parseTemporal(text, ctx, LocalDate::parse, "дату");
+    };
+
+    private static final CellConverter<LocalTime> LOCAL_TIME_CONVERTER = (value, ctx) -> {
+        LocalDateTime serial = value.asLocalDateTime();
+        if (serial != null) {
+            return serial.toLocalTime();
+        }
+        String text = ctx.text(value);
+        if (text == null) {
+            return null;
+        }
+        return parseTemporal(text, ctx, LocalTime::parse, "время");
+    };
+
+    private static final CellConverter<UUID> UUID_CONVERTER = (value, ctx) -> {
+        String text = ctx.text(value);
+        if (text == null) {
+            return null;
+        }
+        try {
+            return UUID.fromString(text);
+        } catch (IllegalArgumentException e) {
+            throw new ConversionException("NOT_UUID", "«" + text + "» не является UUID", e);
+        }
+    };
+
+    // Converters that delegate to other converters (declared after their dependencies)
+    private static final CellConverter<Integer> INTEGER_CONVERTER = (value, ctx) -> {
+        Long parsed = LONG_CONVERTER.convert(value, ctx);
+        if (parsed == null) {
+            return null;
+        }
+        if (parsed < Integer.MIN_VALUE || parsed > Integer.MAX_VALUE) {
+            throw new ConversionException(
+                    "OUT_OF_RANGE", parsed + " не укладывается в 32-битное целое");
+        }
+        return parsed.intValue();
+    };
+
+    private static final CellConverter<Double> DOUBLE_CONVERTER = (value, ctx) -> {
+        BigDecimal parsed = BIG_DECIMAL_CONVERTER.convert(value, ctx);
+        return parsed == null ? null : parsed.doubleValue();
+    };
+
+    private static final CellConverter<Float> FLOAT_CONVERTER = (value, ctx) -> {
+        BigDecimal parsed = BIG_DECIMAL_CONVERTER.convert(value, ctx);
+        return parsed == null ? null : parsed.floatValue();
+    };
+
+    private static final CellConverter<Short> SHORT_CONVERTER = (value, ctx) -> {
+        Integer parsed = INTEGER_CONVERTER.convert(value, ctx);
+        if (parsed == null) {
+            return null;
+        }
+        if (parsed < Short.MIN_VALUE || parsed > Short.MAX_VALUE) {
+            throw new ConversionException(
+                    "OUT_OF_RANGE", parsed + " не укладывается в 16-битное целое");
+        }
+        return parsed.shortValue();
+    };
+
+    private static final CellConverter<OffsetDateTime> OFFSET_DATE_TIME_CONVERTER =
+            (value, ctx) -> {
+                LocalDateTime local = LOCAL_DATE_TIME_CONVERTER.convert(value, ctx);
+                return local == null ? null : local.atOffset(ZoneOffset.UTC);
+            };
+
     public static CellConverter<String> stringConverter() {
-        return (value, ctx) -> ctx.text(value);
+        return STRING_CONVERTER;
     }
 
     public static CellConverter<Long> longConverter() {
-        return (value, ctx) -> {
-            Double number = numericOrNull(value, ctx);
-            if (number != null) {
-                return toExactLong(number, ctx);
-            }
-            String text = ctx.text(value);
-            if (text == null) {
-                return null;
-            }
-            try {
-                return Long.valueOf(cleanNumber(text));
-            } catch (NumberFormatException e) {
-                throw new ConversionException(
-                        "NOT_INTEGER", "«" + text + "» не является целым числом", e);
-            }
-        };
+        return LONG_CONVERTER;
     }
 
     public static CellConverter<Integer> integerConverter() {
-        return (value, ctx) -> {
-            Long parsed = longConverter().convert(value, ctx);
-            if (parsed == null) {
-                return null;
-            }
-            if (parsed < Integer.MIN_VALUE || parsed > Integer.MAX_VALUE) {
-                throw new ConversionException(
-                        "OUT_OF_RANGE", parsed + " не укладывается в 32-битное целое");
-            }
-            return parsed.intValue();
-        };
+        return INTEGER_CONVERTER;
     }
 
     public static CellConverter<Short> shortConverter() {
-        return (value, ctx) -> {
-            Integer parsed = integerConverter().convert(value, ctx);
-            if (parsed == null) {
-                return null;
-            }
-            if (parsed < Short.MIN_VALUE || parsed > Short.MAX_VALUE) {
-                throw new ConversionException(
-                        "OUT_OF_RANGE", parsed + " не укладывается в 16-битное целое");
-            }
-            return parsed.shortValue();
-        };
+        return SHORT_CONVERTER;
     }
 
     public static CellConverter<BigDecimal> bigDecimalConverter() {
-        return (value, ctx) -> {
-            String text = ctx.text(value);
-            if (text == null) {
-                return null;
-            }
-            try {
-                return new BigDecimal(cleanNumber(text).replace(',', '.'));
-            } catch (NumberFormatException e) {
-                throw new ConversionException(
-                        "NOT_NUMBER", "«" + text + "» не является числом", e);
-            }
-        };
+        return BIG_DECIMAL_CONVERTER;
     }
 
     public static CellConverter<Double> doubleConverter() {
-        return (value, ctx) -> {
-            BigDecimal parsed = bigDecimalConverter().convert(value, ctx);
-            return parsed == null ? null : parsed.doubleValue();
-        };
+        return DOUBLE_CONVERTER;
     }
 
     public static CellConverter<Float> floatConverter() {
-        return (value, ctx) -> {
-            BigDecimal parsed = bigDecimalConverter().convert(value, ctx);
-            return parsed == null ? null : parsed.floatValue();
-        };
+        return FLOAT_CONVERTER;
     }
 
     public static CellConverter<Boolean> booleanConverter() {
-        return (value, ctx) -> {
-            Boolean direct = value.asBoolean();
-            if (direct != null) {
-                return direct;
-            }
-            String text = ctx.text(value);
-            if (text == null) {
-                return null;
-            }
-            Boolean parsed = ctx.booleanWords().parse(text);
-            if (parsed == null) {
-                throw new ConversionException(
-                        "NOT_BOOLEAN",
-                        "«" + text + "» не распознано как логическое значение; допустимо: "
-                                + ctx.booleanWords().trueWords() + " / "
-                                + ctx.booleanWords().falseWords());
-            }
-            return parsed;
-        };
+        return BOOLEAN_CONVERTER;
     }
 
     public static CellConverter<LocalDate> localDateConverter() {
-        return (value, ctx) -> {
-            LocalDateTime serial = value.asLocalDateTime();
-            if (serial != null) {
-                return serial.toLocalDate();
-            }
-            String text = ctx.text(value);
-            if (text == null) {
-                return null;
-            }
-            return parseTemporal(text, ctx, LocalDate::parse, "дату");
-        };
+        return LOCAL_DATE_CONVERTER;
     }
 
     public static CellConverter<LocalDateTime> localDateTimeConverter() {
-        return (value, ctx) -> {
-            LocalDateTime serial = value.asLocalDateTime();
-            if (serial != null) {
-                return serial;
-            }
-            String text = ctx.text(value);
-            if (text == null) {
-                return null;
-            }
-            return parseTemporal(text, ctx, LocalDateTime::parse, "дату и время");
-        };
+        return LOCAL_DATE_TIME_CONVERTER;
     }
 
     public static CellConverter<LocalTime> localTimeConverter() {
-        return (value, ctx) -> {
-            LocalDateTime serial = value.asLocalDateTime();
-            if (serial != null) {
-                return serial.toLocalTime();
-            }
-            String text = ctx.text(value);
-            if (text == null) {
-                return null;
-            }
-            return parseTemporal(text, ctx, LocalTime::parse, "время");
-        };
+        return LOCAL_TIME_CONVERTER;
     }
 
     public static CellConverter<OffsetDateTime> offsetDateTimeConverter() {
-        return (value, ctx) -> {
-            LocalDateTime local = localDateTimeConverter().convert(value, ctx);
-            return local == null ? null : local.atOffset(ZoneOffset.UTC);
-        };
+        return OFFSET_DATE_TIME_CONVERTER;
     }
 
     public static CellConverter<UUID> uuidConverter() {
-        return (value, ctx) -> {
-            String text = ctx.text(value);
-            if (text == null) {
-                return null;
-            }
-            try {
-                return UUID.fromString(text);
-            } catch (IllegalArgumentException e) {
-                throw new ConversionException("NOT_UUID", "«" + text + "» не является UUID", e);
-            }
-        };
+        return UUID_CONVERTER;
     }
 
     public static <E extends Enum<E>> CellConverter<E> enumConverter(Class<E> enumType) {
