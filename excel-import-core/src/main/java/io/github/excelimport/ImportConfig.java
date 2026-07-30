@@ -38,7 +38,7 @@ public final class ImportConfig {
         this.batchSize = builder.batchSize;
         this.sheet = builder.sheet;
         this.headerRow = builder.headerRow;
-        this.firstDataRow = builder.firstDataRow < 0 ? builder.headerRow + 1 : builder.firstDataRow;
+        this.firstDataRow = builder.firstDataRow == null ? builder.headerRow + 1 : builder.firstDataRow;
         this.skipBlankRows = builder.skipBlankRows;
         this.expandMergedCells = builder.expandMergedCells;
         this.formulaPolicy = builder.formulaPolicy;
@@ -171,7 +171,9 @@ public final class ImportConfig {
         private int batchSize = 1000;
         private SheetSelector sheet;
         private int headerRow = 0;
-        private int firstDataRow = -1;
+
+        /** null означает «не задано» — вычисляется как {@code headerRow + 1} в {@link #build()}. */
+        private Integer firstDataRow;
         private boolean skipBlankRows = true;
         private boolean expandMergedCells = true;
         private FormulaPolicy formulaPolicy = FormulaPolicy.AS_NULL;
@@ -316,7 +318,11 @@ public final class ImportConfig {
             if (headerRow < 0) {
                 throw new IllegalArgumentException("headerRow должен быть >= 0, получено: " + headerRow);
             }
-            if (firstDataRow >= 0 && firstDataRow <= headerRow) {
+            if (firstDataRow != null && firstDataRow < 0) {
+                throw new IllegalArgumentException(
+                        "firstDataRow должен быть >= 0, получено: " + firstDataRow);
+            }
+            if (firstDataRow != null && firstDataRow <= headerRow) {
                 throw new IllegalArgumentException(
                         "firstDataRow (" + firstDataRow + ") должен быть больше headerRow (" + headerRow + ")");
             }

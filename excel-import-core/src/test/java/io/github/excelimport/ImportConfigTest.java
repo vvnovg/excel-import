@@ -49,6 +49,10 @@ class ImportConfigTest {
         assertThatThrownBy(() -> ImportConfig.builder().batchSize(0).build())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("batchSize");
+
+        assertThatThrownBy(() -> ImportConfig.builder().batchSize(-5).build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("batchSize");
     }
 
     @Test
@@ -66,10 +70,52 @@ class ImportConfigTest {
     }
 
     @Test
+    void rejectsFirstDataRowNegativeOtherThanSentinel() {
+        assertThatThrownBy(() -> ImportConfig.builder().firstDataRow(-2).build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("firstDataRow");
+    }
+
+    @Test
+    void rejectsFirstDataRowLessThanHeaderRow() {
+        assertThatThrownBy(() -> ImportConfig.builder().headerRow(5).firstDataRow(2).build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("firstDataRow");
+    }
+
+    @Test
     void rejectsNegativeSplitDepth() {
         assertThatThrownBy(() -> ImportConfig.builder().maxSplitDepth(-1).build())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("maxSplitDepth");
+    }
+
+    @Test
+    void rejectsNegativeMaxErrors() {
+        assertThatThrownBy(() -> ImportConfig.builder().maxErrors(-1).build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("maxErrors");
+    }
+
+    @Test
+    void rejectsNegativeMaxErrorsInMemory() {
+        assertThatThrownBy(() -> ImportConfig.builder().maxErrorsInMemory(-1).build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("maxErrorsInMemory");
+    }
+
+    @Test
+    void rejectsNegativeMaxOutcomeMessagesInMemory() {
+        assertThatThrownBy(() -> ImportConfig.builder().maxOutcomeMessagesInMemory(-1).build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("maxOutcomeMessagesInMemory");
+    }
+
+    @Test
+    void rejectsNegativeQueryTimeoutSeconds() {
+        assertThatThrownBy(() -> ImportConfig.builder().queryTimeoutSeconds(-1).build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("queryTimeoutSeconds");
     }
 
     @Test
