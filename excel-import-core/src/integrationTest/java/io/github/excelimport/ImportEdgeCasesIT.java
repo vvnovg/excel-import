@@ -60,6 +60,7 @@ class ImportEdgeCasesIT {
     void resetTable() {
         PostgresSupport.execute(
                 "DROP TABLE IF EXISTS record",
+                "DROP FUNCTION IF EXISTS sleep_before_insert",
                 "CREATE TABLE record ("
                         + "key bigint PRIMARY KEY, day date, amount numeric(12,2), note text)");
     }
@@ -133,7 +134,7 @@ class ImportEdgeCasesIT {
     }
 
     @Test
-    void formulaWithCachedResultIsImported() {
+    void formulaWithCachedResultIsImported() throws SQLException {
         Path file = XlsxFixtures.workbook(tempDir, "Лист1", sheet -> {
             Row header = sheet.createRow(0);
             header.createCell(0).setCellValue("Ключ");
@@ -151,6 +152,42 @@ class ImportEdgeCasesIT {
 
             assertThat(report.insertedRows()).isEqualTo(1);
         }
+
+        // в БД ложится именно кэшированное значение формулы, а не null
+        try (var connection = dataSource.getConnection();
+                var statement = connection.createStatement();
+                var rs = statement.executeQuery("SELECT amount FROM record WHERE key = 1")) {
+            rs.next();
+            assertThat(rs.getBigDecimal(1)).isEqualByComparingTo("200");
+        }
+    }
+
+    /**
+     * §10, сценарий queryTimeout: {@code ImportConfig.queryTimeoutSeconds(1)} пробрасывается в
+     * {@code Statement.setQueryTimeout(1)} на пути INSERT, а BEFORE INSERT-триггер спит 3 с.
+     * PostgreSQL отменяет оператор (SQLState 57014, класс «57» — operator intervention),
+     * {@code DefaultSqlErrorClassifier} помечает его фатальным — бисекция не запускается,
+     * импорт прерывается {@link ImportAbortedException}.
+     */
+    @Test
+    void queryTimeoutAbortsImportAsFatal() {
+        PostgresSupport.execute(
+                "CREATE OR REPLACE FUNCTION sleep_before_insert() RETURNS trigger"
+                        + " LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(3); RETURN NEW; END; $$",
+                "CREATE TRIGGER slow_insert BEFORE INSERT ON record"
+                        + " FOR EACH ROW EXECUTE FUNCTION sleep_before_insert()");
+        Path file = XlsxFixtures.simpleSheet(tempDir, new Object[][] {
+            {"Ключ", "Дата", "Сумма"},
+            {1, LocalDate.of(2026, 1, 1), 1},
+        });
+
+        try (ExcelImporter<Record> excelImporter =
+                importer(ImportConfig.builder().queryTimeoutSeconds(1).build())) {
+            assertThatThrownBy(() -> excelImporter.importFile(file))
+                    .isInstanceOf(ImportAbortedException.class);
+        }
+
+        assertThat(PostgresSupport.countRows("record")).isZero();
     }
 
     @Test
