@@ -43,12 +43,20 @@ public final class ReportWriter {
     private final StreamingSheetReader reader;
     private final ReportStyle style;
     private final ReportRowCustomizer customizer;
+    private final int maxRowsPerSheet;
 
     public ReportWriter(
             StreamingSheetReader reader, ReportStyle style, ReportRowCustomizer customizer) {
+        this(reader, style, customizer, MAX_ROWS_PER_SHEET);
+    }
+
+    /** Для тестов: позволяет спровоцировать разбиение листа без миллиона строк. */
+    ReportWriter(StreamingSheetReader reader, ReportStyle style, ReportRowCustomizer customizer,
+            int maxRowsPerSheet) {
         this.reader = reader;
         this.style = style;
         this.customizer = customizer;
+        this.maxRowsPerSheet = maxRowsPerSheet;
     }
 
     /**
@@ -121,6 +129,7 @@ public final class ReportWriter {
         private int statusColumn = -1;
         private int reasonColumn = -1;
         private boolean headerWritten;
+        private RawRow headerSource;
 
         Writer(SXSSFWorkbook workbook, RowOutcomeStore outcomes, ImportReport report) {
             this.workbook = workbook;
@@ -141,18 +150,26 @@ public final class ReportWriter {
         }
 
         void onRow(RawRow source) {
-            if (rowsInSheet >= MAX_ROWS_PER_SHEET - 1) {
-                finishSheet();
-                newSheet();
-            }
             if (!headerWritten) {
                 writeHeader(source);
                 return;
+            }
+            if (rowsInSheet >= maxRowsPerSheet - 1) {
+                finishSheet();
+                newSheet();
+                writeHeaderRow(headerSource);
             }
             writeDataRow(source);
         }
 
         private void writeHeader(RawRow source) {
+            headerSource = source;
+            writeHeaderRow(source);
+            headerWritten = true;
+        }
+
+        /** Пишет заголовок: исходные ячейки + статус/причина. На всех листах один и тот же. */
+        private void writeHeaderRow(RawRow source) {
             int lastColumn = source.lastColumnIndex();
             statusColumn = lastColumn + 1;
             reasonColumn = lastColumn + 2;
@@ -163,7 +180,6 @@ public final class ReportWriter {
             }
             row.createCell(statusColumn).setCellValue(style.statusColumnHeader());
             row.createCell(reasonColumn).setCellValue(style.reasonColumnHeader());
-            headerWritten = true;
 
             sheet.createFreezePane(0, 1);
             invokeCustomizer(() -> {
@@ -187,7 +203,7 @@ public final class ReportWriter {
 
             Cell reasonCell = row.createCell(reasonColumn);
             reasonCell.setCellValue(outcome.message() == null ? "" : outcome.message());
-            reasonCell.setCellStyle(styles.styleFor(status, null));
+            reasonCell.setCellStyle(styles.reasonStyleFor(status, null));
 
             invokeCustomizer(() -> {
                 if (customizer != null) {

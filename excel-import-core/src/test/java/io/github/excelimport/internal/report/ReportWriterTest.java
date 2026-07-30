@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -243,6 +244,78 @@ class ReportWriterTest {
         try (Workbook workbook = new XSSFWorkbook(Files.newInputStream(target))) {
             // стилей должно быть единицы, а не по одному на строку
             assertThat(workbook.getNumCellStyles()).isLessThan(30);
+        }
+    }
+
+    @Test
+    void reasonAlignmentIsAppliedToReasonCells() throws Exception {
+        ReportStyle style = ReportStyle.builder()
+                .reasonAlignment(HorizontalAlignment.RIGHT)
+                .build();
+
+        Path target = write(style, null);
+
+        try (Workbook workbook = new XSSFWorkbook(Files.newInputStream(target))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            assertThat(sheet.getRow(1).getCell(3).getCellStyle().getAlignment())
+                    .isEqualTo(HorizontalAlignment.RIGHT);
+            assertThat(sheet.getRow(2).getCell(3).getCellStyle().getAlignment())
+                    .isEqualTo(HorizontalAlignment.RIGHT);
+            // колонка статуса остаётся с выравниванием по умолчанию
+            assertThat(sheet.getRow(1).getCell(2).getCellStyle().getAlignment())
+                    .isNotEqualTo(HorizontalAlignment.RIGHT);
+        }
+    }
+
+    @Test
+    void sheetSplitKeepsBoundaryRowAndRepeatsHeader() throws Exception {
+        Object[][] rows = new Object[7][];
+        rows[0] = new Object[] {"ФИО", "Оклад"};
+        for (int i = 1; i <= 6; i++) {
+            rows[i] = new Object[] {"Сотрудник " + i, i};
+        }
+        Path source = XlsxFixtures.simpleSheet(tempDir, rows);
+        Path target = tempDir.resolve("split-report.xlsx");
+
+        // порог 4 вместо 1 048 576: первый лист вмещает заголовок + 2 строки данных,
+        // затем идёт тот же код разбиения, что и при реальном пределе
+        try (RowOutcomeStore store = new SpillableRowOutcomeStore(tempDir, 1000)) {
+            for (int rowNum = 2; rowNum <= 7; rowNum++) {
+                store.put(rowNum, rowNum % 2 == 0
+                        ? RowOutcome.inserted()
+                        : RowOutcome.rejected("ошибка " + rowNum));
+            }
+            store.seal();
+            new ReportWriter(new PoiStreamingSheetReader(), ReportStyle.defaults(), null, 4)
+                    .write(source, SheetSelector.first(), ReadOptions.defaults(), store,
+                            report(target), target);
+        }
+
+        try (Workbook workbook = new XSSFWorkbook(Files.newInputStream(target))) {
+            assertThat(workbook.getNumberOfSheets()).isEqualTo(4); // три листа отчёта + сводка
+
+            // граничная строка осталась на первом листе полноценной строкой данных
+            Sheet first = workbook.getSheet("Отчёт");
+            assertThat(first.getLastRowNum()).isEqualTo(2); // заголовок + 2 строки данных
+            Row boundary = first.getRow(2);
+            assertThat(boundary.getCell(2).getStringCellValue()).isEqualTo("Ошибка");
+            assertThat(boundary.getCell(3).getStringCellValue()).isEqualTo("ошибка 3");
+            assertThat(((XSSFCellStyle) boundary.getCell(0).getCellStyle())
+                    .getFillForegroundColorColor()).isNotNull();
+
+            // второй лист начинается с настоящего заголовка, строка данных идёт следом
+            Sheet second = workbook.getSheet("Отчёт 2");
+            Row header = second.getRow(0);
+            assertThat(header.getCell(0).getStringCellValue()).isEqualTo("ФИО");
+            assertThat(header.getCell(1).getStringCellValue()).isEqualTo("Оклад");
+            assertThat(header.getCell(2).getStringCellValue()).isEqualTo("Статус импорта");
+            assertThat(header.getCell(3).getStringCellValue()).isEqualTo("Причина");
+
+            assertThat(second.getRow(1).getCell(0).getStringCellValue()).isEqualTo("Сотрудник 3");
+            assertThat(second.getRow(1).getCell(2).getStringCellValue()).isEqualTo("Загружено");
+            assertThat(((XSSFCellStyle) second.getRow(1).getCell(0).getCellStyle())
+                    .getFillForegroundColorColor()).isNotNull();
+            assertThat(second.getLastRowNum()).isEqualTo(2); // заголовок + 2 строки данных
         }
     }
 

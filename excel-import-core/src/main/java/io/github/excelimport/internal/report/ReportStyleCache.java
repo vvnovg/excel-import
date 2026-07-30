@@ -16,7 +16,7 @@ import org.apache.poi.xssf.usermodel.XSSFColor;
  */
 final class ReportStyleCache {
 
-    private record Key(RowStatus status, String dataFormat) {}
+    private record Key(RowStatus status, String dataFormat, boolean reason) {}
 
     private final SXSSFWorkbook workbook;
     private final ReportStyle style;
@@ -34,7 +34,12 @@ final class ReportStyleCache {
     }
 
     CellStyle styleFor(RowStatus status, String format) {
-        return cache.computeIfAbsent(new Key(status, format), this::create);
+        return cache.computeIfAbsent(new Key(status, format, false), this::create);
+    }
+
+    /** Стиль ячейки причины: отдельный ключ, т.к. добавляет {@code reasonAlignment}. */
+    CellStyle reasonStyleFor(RowStatus status, String format) {
+        return cache.computeIfAbsent(new Key(status, format, true), this::create);
     }
 
     private CellStyle create(Key key) {
@@ -46,6 +51,9 @@ final class ReportStyleCache {
         }
         if (key.dataFormat() != null) {
             cellStyle.setDataFormat(dataFormat.getFormat(key.dataFormat()));
+        }
+        if (key.reason()) {
+            cellStyle.setAlignment(style.reasonAlignment());
         }
         return cellStyle;
     }
