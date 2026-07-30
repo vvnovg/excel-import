@@ -46,6 +46,10 @@ val integrationTestTask = tasks.register<Test>("integrationTest") {
     testClassesDirs = integrationTest.output.classesDirs
     classpath = integrationTest.runtimeClasspath
     shouldRunAfter(tasks.named("test"))
+    // Testcontainers/docker-java по умолчанию говорят с демоном по API 1.32,
+    // а Docker Engine 29+ не принимает версии ниже 1.40. Явно просим 1.44 —
+    // любой демон с Docker 27+ её поддерживает.
+    systemProperty("api.version", "1.44")
 }
 
 tasks.named("check") {
