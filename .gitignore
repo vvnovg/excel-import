@@ -1,1 +1,8 @@
 .superpowers/
+.gradle/
+build/
+*/build/
+.idea/
+*.iml
+.DS_Store
+!gradle/wrapper/gradle-wrapper.jar
