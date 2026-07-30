@@ -4,7 +4,8 @@ val integrationTest: SourceSet by sourceSets.creating {
 }
 
 val performanceTest: SourceSet by sourceSets.creating {
-    compileClasspath += sourceSets["main"].output + sourceSets["test"].output
+    compileClasspath += sourceSets["main"].output + sourceSets["test"].output +
+            sourceSets["integrationTest"].output
     runtimeClasspath += output + compileClasspath
 }
 
@@ -38,6 +39,10 @@ dependencies {
     "integrationTestImplementation"(libs.testcontainers.postgresql)
     "integrationTestImplementation"(libs.testcontainers.junit)
     "integrationTestImplementation"(libs.postgresql)
+
+    "performanceTestImplementation"(libs.testcontainers.postgresql)
+    "performanceTestImplementation"(libs.testcontainers.junit)
+    "performanceTestImplementation"(libs.postgresql)
 }
 
 val integrationTestTask = tasks.register<Test>("integrationTest") {
@@ -62,4 +67,8 @@ tasks.register<Test>("performanceTest") {
     testClassesDirs = performanceTest.output.classesDirs
     classpath = performanceTest.runtimeClasspath
     maxHeapSize = "256m"
+    // Testcontainers/docker-java по умолчанию говорят с демоном по API 1.32,
+    // а Docker Engine 29+ не принимает версии ниже 1.40. Явно просим 1.44 —
+    // любой демон с Docker 27+ её поддерживает. Та же строка есть в integrationTest.
+    systemProperty("api.version", "1.44")
 }
