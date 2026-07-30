@@ -11,6 +11,7 @@ testcontainers = "1.20.6"
 spring-boot = "3.4.13"
 logback = "1.5.38"
 log4j-to-slf4j = "2.25.3"
+h2 = "2.3.232"
 
 [libraries]
 poi = { module = "org.apache.poi:poi", version.ref = "poi" }
@@ -33,3 +34,4 @@ spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-star
 spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc", version.ref = "spring-boot" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 log4j-to-slf4j = { module = "org.apache.logging.log4j:log4j-to-slf4j", version.ref = "log4j-to-slf4j" }
+h2 = { module = "com.h2database:h2", version.ref = "h2" }
