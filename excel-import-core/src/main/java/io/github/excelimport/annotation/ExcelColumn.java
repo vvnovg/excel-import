@@ -34,7 +34,6 @@ public @interface ExcelColumn {
     /** Пустую строку считать null. */
     boolean emptyAsNull() default true;
 
-    /** Свой конвертер. {@code CellConverter.class} означает «выбрать по типу поля». */
-    @SuppressWarnings("rawtypes")
-    Class<? extends CellConverter> converter() default CellConverter.class;
+    /** Свой конвертер. {@code CellConverter.None.class} означает «выбрать по типу поля». */
+    Class<? extends CellConverter<?>> converter() default CellConverter.None.class;
 }

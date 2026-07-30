@@ -143,23 +143,13 @@ public final class MappingModelFactory {
                     excel == null ? List.of() : List.of(excel.formats()),
                     excel == null || excel.trim(),
                     excel == null || excel.emptyAsNull(),
-                    excel == null ? converterDefault() : converterType(excel));
+                    excel == null ? CellConverter.None.class : excel.converter());
         } catch (IllegalAccessException e) {
             throw new MappingConfigurationException(
                     "нет доступа к полю " + type.getName() + "." + field.getName()
                             + "; сделайте класс и его поля видимыми для библиотеки",
                     e);
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Class<? extends CellConverter<?>> converterDefault() {
-        return (Class<? extends CellConverter<?>>) (Class<?>) CellConverter.class;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Class<? extends CellConverter<?>> converterType(ExcelColumn excel) {
-        return (Class<? extends CellConverter<?>>) (Class<?>) excel.converter();
     }
 
     private static List<Field> allFields(Class<?> type) {
