@@ -1,5 +1,6 @@
 package io.github.excelimport.convert;
 
+import java.time.LocalDateTime;
 import java.util.Objects;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.util.CellAddress;
@@ -36,6 +37,12 @@ public interface CellValue {
      * Значим только при {@link #type()} == {@link CellType#ERROR}, иначе -1.
      */
     byte errorCode();
+
+    /**
+     * Значение как дата/время. Возвращает null, если ячейка не числовая или её стиль
+     * не является форматом даты. Учитывает систему дат книги (1900 или 1904).
+     */
+    LocalDateTime asLocalDateTime();
 
     default boolean isBlank() {
         return type() == CellType.BLANK;

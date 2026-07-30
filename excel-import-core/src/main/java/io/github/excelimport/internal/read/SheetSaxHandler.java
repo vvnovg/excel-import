@@ -26,6 +26,7 @@ final class SheetSaxHandler extends DefaultHandler {
 
     private final SharedStrings sharedStrings;
     private final StylesTable styles;
+    private final boolean date1904;
     private final ReadOptions options;
     private final MergedFill mergedFill;
     private final Consumer<RawRow> handler;
@@ -45,11 +46,13 @@ final class SheetSaxHandler extends DefaultHandler {
     SheetSaxHandler(
             SharedStrings sharedStrings,
             StylesTable styles,
+            boolean date1904,
             ReadOptions options,
             MergedFill mergedFill,
             Consumer<RawRow> handler) {
         this.sharedStrings = sharedStrings;
         this.styles = styles;
+        this.date1904 = date1904;
         this.options = options;
         this.mergedFill = mergedFill;
         this.handler = handler;
@@ -122,7 +125,7 @@ final class SheetSaxHandler extends DefaultHandler {
         }
         if (raw == null) {
             return new ImmutableCellValue(
-                    cellAddress, CellType.BLANK, dateFormatted, null, null, null, null, (byte) -1);
+                    cellAddress, CellType.BLANK, dateFormatted, null, null, null, null, (byte) -1, date1904);
         }
         return switch (cellTypeAttr == null ? "n" : cellTypeAttr) {
             case "s" -> string(sharedStrings.getItemAt(Integer.parseInt(raw)).getString(), dateFormatted);
@@ -137,10 +140,11 @@ final class SheetSaxHandler extends DefaultHandler {
                         null,
                         value,
                         null,
-                        (byte) -1);
+                        (byte) -1,
+                        date1904);
             }
             case "e" -> new ImmutableCellValue(
-                    cellAddress, CellType.ERROR, false, raw, null, null, null, errorCode(raw));
+                    cellAddress, CellType.ERROR, false, raw, null, null, null, errorCode(raw), date1904);
             default -> numeric(raw, dateFormatted);
         };
     }
@@ -149,9 +153,17 @@ final class SheetSaxHandler extends DefaultHandler {
         if (raw == null) {
             return switch (options.formulaPolicy()) {
                 case AS_NULL -> new ImmutableCellValue(
-                        cellAddress, CellType.BLANK, dateFormatted, null, null, null, formula, (byte) -1);
+                        cellAddress,
+                        CellType.BLANK,
+                        dateFormatted,
+                        null,
+                        null,
+                        null,
+                        formula,
+                        (byte) -1,
+                        date1904);
                 case AS_FORMULA_TEXT -> new ImmutableCellValue(
-                        cellAddress, CellType.STRING, false, formula, null, null, formula, (byte) -1);
+                        cellAddress, CellType.STRING, false, formula, null, null, formula, (byte) -1, date1904);
                 case AS_ERROR -> new ImmutableCellValue(
                         cellAddress,
                         CellType.ERROR,
@@ -160,20 +172,21 @@ final class SheetSaxHandler extends DefaultHandler {
                         null,
                         null,
                         formula,
-                        (byte) -1);
+                        (byte) -1,
+                        date1904);
             };
         }
         // есть кэшированный результат — используем его тип
         if ("e".equals(cellTypeAttr)) {
             return new ImmutableCellValue(
-                    cellAddress, CellType.ERROR, false, raw, null, null, formula, errorCode(raw));
+                    cellAddress, CellType.ERROR, false, raw, null, null, formula, errorCode(raw), date1904);
         }
         if ("str".equals(cellTypeAttr) || "s".equals(cellTypeAttr) || "inlineStr".equals(cellTypeAttr)) {
             String text = "s".equals(cellTypeAttr)
                     ? sharedStrings.getItemAt(Integer.parseInt(raw)).getString()
                     : raw;
             return new ImmutableCellValue(
-                    cellAddress, CellType.STRING, dateFormatted, text, null, null, formula, (byte) -1);
+                    cellAddress, CellType.STRING, dateFormatted, text, null, null, formula, (byte) -1, date1904);
         }
         if ("b".equals(cellTypeAttr)) {
             boolean value = "1".equals(raw);
@@ -185,22 +198,23 @@ final class SheetSaxHandler extends DefaultHandler {
                     null,
                     value,
                     formula,
-                    (byte) -1);
+                    (byte) -1,
+                    date1904);
         }
         double number = Double.parseDouble(raw);
         return new ImmutableCellValue(
-                cellAddress, CellType.NUMERIC, dateFormatted, raw, number, null, formula, (byte) -1);
+                cellAddress, CellType.NUMERIC, dateFormatted, raw, number, null, formula, (byte) -1, date1904);
     }
 
     private CellValue string(String text, boolean dateFormatted) {
         return new ImmutableCellValue(
-                cellAddress, CellType.STRING, dateFormatted, text, null, null, null, (byte) -1);
+                cellAddress, CellType.STRING, dateFormatted, text, null, null, null, (byte) -1, date1904);
     }
 
     private CellValue numeric(String raw, boolean dateFormatted) {
         double number = Double.parseDouble(raw);
         return new ImmutableCellValue(
-                cellAddress, CellType.NUMERIC, dateFormatted, raw, number, null, null, (byte) -1);
+                cellAddress, CellType.NUMERIC, dateFormatted, raw, number, null, null, (byte) -1, date1904);
     }
 
     private static byte errorCode(String raw) {
@@ -256,7 +270,7 @@ final class SheetSaxHandler extends DefaultHandler {
 
         static final MergedFill EMPTY = new MergedFill(List.of());
 
-        private record Merge(CellRangeAddress range, CellValue anchor) {}
+        private record Merge(CellRangeAddress range, ImmutableCellValue anchor) {}
 
         private final List<Merge> merges;
         private final List<Merge> active = new ArrayList<>();
@@ -269,13 +283,18 @@ final class SheetSaxHandler extends DefaultHandler {
         /**
          * Строит заполнитель из диапазонов и значений их верхних левых ячеек. Диапазоны с
          * отсутствующим или пустым якорем отбрасываются — заполнять для них нечем.
+         *
+         * <p>Приведение к {@link ImmutableCellValue} безопасно: единственная другая
+         * реализация {@code CellValue} — это пустая ячейка ({@code BlankCellValue} /
+         * {@code ImmutableCellValue} с типом {@code BLANK}), а такие отфильтровываются
+         * проверкой {@code anchor.isBlank()} чуть выше.
          */
         static MergedFill of(List<CellRangeAddress> ranges, Map<CellRangeAddress, CellValue> anchors) {
             List<Merge> merges = new ArrayList<>();
             for (CellRangeAddress range : ranges) {
                 CellValue anchor = anchors.get(range);
                 if (anchor != null && !anchor.isBlank()) {
-                    merges.add(new Merge(range, anchor));
+                    merges.add(new Merge(range, (ImmutableCellValue) anchor));
                 }
             }
             merges.sort(Comparator.comparingInt(m -> m.range().getFirstRow()));
@@ -308,7 +327,7 @@ final class SheetSaxHandler extends DefaultHandler {
         }
     }
 
-    private static CellValue copyTo(CellValue source, CellAddress address) {
+    private static CellValue copyTo(ImmutableCellValue source, CellAddress address) {
         return new ImmutableCellValue(
                 address,
                 source.type(),
@@ -317,6 +336,7 @@ final class SheetSaxHandler extends DefaultHandler {
                 source.asNumeric(),
                 source.asBoolean(),
                 source.formula(),
-                source.errorCode());
+                source.errorCode(),
+                source.date1904());
     }
 }

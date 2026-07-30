@@ -37,14 +37,15 @@ public final class PoiStreamingSheetReader implements StreamingSheetReader {
             XSSFReader reader = new XSSFReader(pkg);
             ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(pkg);
             StylesTable styles = reader.getStylesTable();
+            boolean date1904 = isDate1904(reader);
 
             SheetSaxHandler.MergedFill mergedFill = options.expandMergedCells()
-                    ? collectMergedRanges(reader, selector, strings, styles, options)
+                    ? collectMergedRanges(reader, selector, strings, styles, options, date1904)
                     : SheetSaxHandler.MergedFill.EMPTY;
 
             try (InputStream sheet = openSheet(reader, selector)) {
                 SheetSaxHandler saxHandler =
-                        new SheetSaxHandler(strings, styles, options, mergedFill, handler);
+                        new SheetSaxHandler(strings, styles, date1904, options, mergedFill, handler);
                 newParser().parse(new InputSource(sheet), saxHandler);
             }
         } catch (NotOfficeXmlFileException e) {
@@ -68,6 +69,30 @@ public final class PoiStreamingSheetReader implements StreamingSheetReader {
             return factory.newSAXParser();
         } catch (ParserConfigurationException | SAXException e) {
             throw new IllegalStateException("не удалось создать SAX-парсер", e);
+        }
+    }
+
+    /**
+     * Система дат книги: {@code workbookPr/@date1904}. Читается отдельным коротким
+     * проходом по {@code workbook.xml} — этот флаг не принадлежит листу и не встречается
+     * в {@code sheetN.xml}, который разбирает {@link SheetSaxHandler}.
+     */
+    private static boolean isDate1904(XSSFReader reader) {
+        try (InputStream workbookData = reader.getWorkbookData()) {
+            boolean[] found = {false};
+            newParser().parse(new InputSource(workbookData), new DefaultHandler() {
+                @Override
+                public void startElement(String uri, String ln, String qName, Attributes attrs) {
+                    if ("workbookPr".equals(qName)) {
+                        String value = attrs.getValue("date1904");
+                        found[0] = "1".equals(value) || "true".equals(value);
+                    }
+                }
+            });
+            return found[0];
+        } catch (IOException | SAXException
+                | org.apache.poi.openxml4j.exceptions.InvalidFormatException e) {
+            throw new FileStructureException("не удалось прочитать свойства книги", e);
         }
     }
 
@@ -111,7 +136,8 @@ public final class PoiStreamingSheetReader implements StreamingSheetReader {
             SheetSelector selector,
             ReadOnlySharedStringsTable strings,
             StylesTable styles,
-            ReadOptions options)
+            ReadOptions options,
+            boolean date1904)
             throws IOException, SAXException,
                     org.apache.poi.openxml4j.exceptions.InvalidFormatException {
         List<CellRangeAddress> ranges = new ArrayList<>();
@@ -143,7 +169,7 @@ public final class PoiStreamingSheetReader implements StreamingSheetReader {
         ReadOptions rawOptions = new ReadOptions(false, false, options.formulaPolicy());
         try (InputStream sheet = openSheet(reader, selector)) {
             SheetSaxHandler collector = new SheetSaxHandler(
-                    strings, styles, rawOptions, SheetSaxHandler.MergedFill.EMPTY, row -> {
+                    strings, styles, date1904, rawOptions, SheetSaxHandler.MergedFill.EMPTY, row -> {
                         List<CellRangeAddress> startingHere = rangesByFirstRow.get(row.rowIndex());
                         if (startingHere == null) {
                             return;

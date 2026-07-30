@@ -1,5 +1,6 @@
 package io.github.excelimport.convert;
 
+import java.time.LocalDateTime;
 import java.util.Objects;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.util.CellAddress;
@@ -47,5 +48,10 @@ record BlankCellValue(CellAddress address) implements CellValue {
     @Override
     public byte errorCode() {
         return -1;
+    }
+
+    @Override
+    public LocalDateTime asLocalDateTime() {
+        return null;
     }
 }
