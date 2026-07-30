@@ -15,6 +15,7 @@ import jakarta.validation.Payload;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -394,5 +395,74 @@ class BeanValidatorTest {
         assertThat(BeanValidator.VIOLATION_ORDER.compare(lowerValue, higherValue)).isNegative();
         assertThat(BeanValidator.VIOLATION_ORDER.compare(higherValue, lowerValue)).isPositive();
         assertThat(BeanValidator.VIOLATION_ORDER.compare(lowerValue, lowerValue)).isZero();
+    }
+
+    // --- Regression 1: escaped braces must not be dropped ----------------------------
+
+    @ExcelSheet(name = "Escape")
+    static class EscapedBracesBean {
+        @ExcelColumn(header = "Код")
+        @Pattern(regexp = "[0-9]+", message = "диапазон \\{0-10\\}")
+        String code = "abc";
+    }
+
+    /**
+     * {@code "диапазон \{0-10\}"} is a literal constraint message meaning
+     * {@code "диапазон {0-10}"} — the backslashes are stock Hibernate Validator escape syntax
+     * for a literal brace, not a real {@code {parameter}} term (there is no constraint
+     * attribute named {@code 0-10}). Before the fix, {@code PARAMETER_TERM} matched
+     * {@code \{0-10\}} as a term anyway (it never checked for a preceding backslash), found no
+     * such attribute, left it unchanged — WITH the backslashes still attached, so the consumer
+     * would see stray {@code \} characters in the rendered message instead of literal braces.
+     */
+    @Test
+    void escapedBracesRenderLiterallyWithoutStrayBackslashes() {
+        MappingModel<EscapedBracesBean> escapeModel =
+                MappingModelFactory.create(EscapedBracesBean.class, NamingStrategy.SNAKE_CASE);
+        try (BeanValidator escapeValidator = new BeanValidator(Locale.forLanguageTag("ru"), escapeModel)) {
+            List<io.github.excelimport.RowError> errors =
+                    escapeValidator.validate(new EscapedBracesBean(), 1);
+
+            assertThat(errors).singleElement()
+                    .satisfies(error -> assertThat(error.message()).isEqualTo("диапазон {0-10}"));
+        }
+    }
+
+    // --- Regression 2: ${...} must not be mistaken for a parameter --------------------
+
+    @ExcelSheet(name = "ElVsParam")
+    static class ElExpressionBean {
+        @ExcelColumn(header = "Возраст")
+        @Min.List({
+            @Min(value = 3, message = "лимит: ${value}"),
+            @Min(value = 7, message = "лимит: {value}")
+        })
+        int age = 0;
+    }
+
+    /**
+     * Two sibling {@code @Min} constraints on the same field, both violated by {@code age = 0}:
+     * one with an EL-looking message ({@code ${value}}, limit 3), one with a plain parameter
+     * message ({@code {value}}, limit 7). The class's documented contract is that {@code
+     * ${...}} is never evaluated and stays exactly as written, while {@code {параметр}} is
+     * substituted. Using two DIFFERENT limits (3 vs 7) makes the two outcomes distinguishable:
+     * if the bug were still present, the leading {@code $} would stay in the literal text and
+     * {@code {value}} would be matched as a real parameter term, substituting {@code @Min}'s
+     * own {@code value} attribute — rendering {@code "лимит: $3"} instead of the untouched
+     * {@code "лимит: ${value}"}. The sibling message proves plain substitution still works
+     * (must render {@code "лимит: 7"}), so this test cannot pass merely because "nothing got
+     * substituted" — it proves the EL/parameter distinction specifically.
+     */
+    @Test
+    void elExpressionIsLeftLiteralWhilePlainParameterStillSubstitutes() {
+        MappingModel<ElExpressionBean> elModel =
+                MappingModelFactory.create(ElExpressionBean.class, NamingStrategy.SNAKE_CASE);
+        try (BeanValidator elValidator = new BeanValidator(Locale.forLanguageTag("ru"), elModel)) {
+            List<io.github.excelimport.RowError> errors = elValidator.validate(new ElExpressionBean(), 1);
+
+            assertThat(errors).hasSize(2);
+            assertThat(errors).extracting(io.github.excelimport.RowError::message)
+                    .containsExactlyInAnyOrder("лимит: ${value}", "лимит: 7");
+        }
     }
 }

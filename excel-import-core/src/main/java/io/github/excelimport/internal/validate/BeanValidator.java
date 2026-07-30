@@ -19,8 +19,6 @@ import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.hibernate.validator.HibernateValidator;
 import org.hibernate.validator.messageinterpolation.AbstractMessageInterpolator;
@@ -243,26 +241,47 @@ public final class BeanValidator implements AutoCloseable {
      * {@code TermInterpolator}, значения не имеет: этот защищённый метод (см. декомпилированный
      * байткод) не читает ни одного поля, заданного через конструктор — он лишь проверяет
      * {@code InterpolationTerm.isElExpression(term)} и делегирует {@code ParameterTermResolver}.
+     *
+     * <p><b>Экранирование и {@code ${...}} в {@link #substituteParameters(String, Context,
+     * Locale)}.</b> Стандартный {@code AbstractMessageInterpolator} трактует {@code \{}, {@code
+     * \}}, {@code \\} и {@code \$} как литеральные экранированные символы (снимает экранирование
+     * один раз, в самом конце), а {@code {...}}, которому непосредственно предшествует
+     * неэкранированный {@code $}, — как EL-выражение, а не как {@code {параметр}}-терм. Обе
+     * особенности значимы: сообщение из кастомного constraint'а вида {@code "диапазон
+     * \{0-10\}"} должно отрендериться как {@code "диапазон {0-10}"} (буквальные скобки, без
+     * обратных слэшей), а {@code "${value}"} на {@code @Min}/{@code @Max} (чей JSR-380-атрибут
+     * называется буквально {@code value}) не должен подставлять числовой предел вместо
+     * невычисляемого EL-выражения — иначе нарушается задокументированный в Javadoc класса
+     * контракт "EL не вычисляется и остаётся как есть". {@link #substituteParameters(String,
+     * Context, Locale)} поэтому сканирует сообщение посимвольно (а не одним regex-проходом):
+     * экранирующая обратная косая черта распознаётся до попытки распознать терм, поэтому
+     * {@code \{} и {@code \}} никогда не открывают/закрывают терм; {@code {...}} с
+     * предшествующим неэкранированным {@code $} копируется в результат буквально, включая сам
+     * {@code $}, целиком нетронутым; обычный {@code {параметр}}-терм подставляется как раньше,
+     * через {@link TermInterpolator}. Снятие экранирования происходит непосредственно при
+     * копировании литерального символа в результат — то есть только для символов исходного
+     * шаблона сообщения, а не для текста, который вернула подстановка параметра (тот
+     * копируется в результат как есть, без повторного снятия экранирования).
      */
     private static final class ChainedParameterMessageInterpolator implements MessageInterpolator {
 
+        private static final ResourceBundleLocator USER_BUNDLE_LOCATOR =
+                new PlatformResourceBundleLocator(AbstractMessageInterpolator.USER_VALIDATION_MESSAGES);
+        private static final ResourceBundleLocator LIBRARY_BUNDLE_LOCATOR =
+                new PlatformResourceBundleLocator(LIBRARY_BUNDLE_NAME);
         private static final ResourceBundleLocator HV_BUILTIN_BUNDLE_LOCATOR =
                 new PlatformResourceBundleLocator(AbstractMessageInterpolator.DEFAULT_VALIDATION_MESSAGES);
 
-        /** Один {@code {...}}-терм без вложенных фигурных скобок: {@code {value}}, {@code {regexp}} и т.п. */
-        private static final Pattern PARAMETER_TERM = Pattern.compile("\\{[^{}]*}");
+        /** Порядок резолва бандлов: потребитель → библиотека → встроенный бандл Hibernate Validator. */
+        private static final List<ResourceBundleLocator> BUNDLE_LOCATORS =
+                List.of(USER_BUNDLE_LOCATOR, LIBRARY_BUNDLE_LOCATOR, HV_BUILTIN_BUNDLE_LOCATOR);
+
+        private static final TermInterpolator TERM_INTERPOLATOR = new TermInterpolator();
 
         private final Locale locale;
-        private final ResourceBundleLocator userBundleLocator;
-        private final ResourceBundleLocator libraryBundleLocator;
-        private final TermInterpolator termInterpolator;
 
         ChainedParameterMessageInterpolator(Locale locale) {
             this.locale = locale;
-            this.userBundleLocator =
-                    new PlatformResourceBundleLocator(AbstractMessageInterpolator.USER_VALIDATION_MESSAGES);
-            this.libraryBundleLocator = new PlatformResourceBundleLocator(LIBRARY_BUNDLE_NAME);
-            this.termInterpolator = new TermInterpolator();
         }
 
         @Override
@@ -282,12 +301,12 @@ public final class BeanValidator implements AutoCloseable {
          * цепочке потребитель → библиотека → встроенный бандл Hibernate Validator. Никогда не
          * резолвит бандл повторно против результата — см. Javadoc класса.
          */
-        private String resolveMessageKey(String messageTemplate, Locale locale) {
+        private static String resolveMessageKey(String messageTemplate, Locale locale) {
             String key = soleBundleKey(messageTemplate);
             if (key == null) {
                 return messageTemplate;
             }
-            for (ResourceBundleLocator locator : List.of(userBundleLocator, libraryBundleLocator, HV_BUILTIN_BUNDLE_LOCATOR)) {
+            for (ResourceBundleLocator locator : BUNDLE_LOCATORS) {
                 ResourceBundle bundle = locator.getResourceBundle(locale);
                 if (bundle != null && bundle.containsKey(key)) {
                     return bundle.getString(key);
@@ -310,21 +329,73 @@ public final class BeanValidator implements AutoCloseable {
             return inner.indexOf('{') < 0 && inner.indexOf('}') < 0 ? inner : null;
         }
 
-        /** Заменяет каждый {@code {параметр}}-терм в {@code message} через {@link TermInterpolator}. */
-        private String substituteParameters(String message, Context context, Locale locale) {
-            if (message.indexOf('{') < 0) {
+        /**
+         * Посимвольно сканирует {@code message}, заменяя каждый {@code {параметр}}-терм через
+         * {@link TermInterpolator}, оставляя {@code ${...}}-EL-выражения нетронутыми и снимая
+         * экранирование {@code \{}, {@code \}}, {@code \\}, {@code \$} — см. Javadoc класса.
+         */
+        private static String substituteParameters(String message, Context context, Locale locale) {
+            if (message.indexOf('{') < 0 && message.indexOf('\\') < 0) {
                 return message;
             }
-            Matcher matcher = PARAMETER_TERM.matcher(message);
-            StringBuilder result = new StringBuilder();
-            int lastEnd = 0;
-            while (matcher.find()) {
-                result.append(message, lastEnd, matcher.start());
-                result.append(termInterpolator.interpolateTerm(context, locale, matcher.group()));
-                lastEnd = matcher.end();
+            int length = message.length();
+            StringBuilder result = new StringBuilder(length);
+            int i = 0;
+            while (i < length) {
+                char c = message.charAt(i);
+                if (c == '\\' && i + 1 < length && isEscapable(message.charAt(i + 1))) {
+                    result.append(message.charAt(i + 1));
+                    i += 2;
+                    continue;
+                }
+                if (c == '$' && i + 1 < length && message.charAt(i + 1) == '{') {
+                    int termEnd = findTermEnd(message, i + 1);
+                    if (termEnd >= 0) {
+                        // EL-выражение: не вычисляем (в classpath намеренно нет jakarta.el —
+                        // см. Javadoc класса), не подставляем параметр — копируем "${...}" как есть.
+                        result.append(message, i, termEnd);
+                        i = termEnd;
+                        continue;
+                    }
+                }
+                if (c == '{') {
+                    int termEnd = findTermEnd(message, i);
+                    if (termEnd >= 0) {
+                        String term = message.substring(i, termEnd);
+                        result.append(TERM_INTERPOLATOR.interpolateTerm(context, locale, term));
+                        i = termEnd;
+                        continue;
+                    }
+                }
+                result.append(c);
+                i++;
             }
-            result.append(message, lastEnd, message.length());
             return result.toString();
+        }
+
+        private static boolean isEscapable(char c) {
+            return c == '{' || c == '}' || c == '\\' || c == '$';
+        }
+
+        /**
+         * @param message текст сообщения
+         * @param openBraceIndex индекс символа {@code '{'}, с которого начинается терм
+         * @return индекс СЛЕДУЮЩЕГО символа после закрывающей {@code '}'} терма, если между
+         *     {@code openBraceIndex} и ближайшей {@code '}'} нет ни одной вложенной {@code '{'}
+         *     (тот же терм, что раньше матчился регулярным выражением {@code \{[^{}]*}});
+         *     иначе {@code -1} — это не терм, символ {@code '{'} нужно скопировать буквально.
+         */
+        private static int findTermEnd(String message, int openBraceIndex) {
+            int closeIndex = message.indexOf('}', openBraceIndex + 1);
+            if (closeIndex < 0) {
+                return -1;
+            }
+            for (int j = openBraceIndex + 1; j < closeIndex; j++) {
+                if (message.charAt(j) == '{') {
+                    return -1;
+                }
+            }
+            return closeIndex + 1;
         }
 
         /**
