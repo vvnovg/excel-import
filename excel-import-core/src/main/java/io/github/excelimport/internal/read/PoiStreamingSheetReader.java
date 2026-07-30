@@ -6,7 +6,9 @@ import io.github.excelimport.exception.FileStructureException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import javax.xml.parsers.ParserConfigurationException;
@@ -36,9 +38,9 @@ public final class PoiStreamingSheetReader implements StreamingSheetReader {
             ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(pkg);
             StylesTable styles = reader.getStylesTable();
 
-            Map<Integer, Map<Integer, CellValue>> mergedFill = options.expandMergedCells()
+            SheetSaxHandler.MergedFill mergedFill = options.expandMergedCells()
                     ? collectMergedRanges(reader, selector, strings, styles, options)
-                    : Map.of();
+                    : SheetSaxHandler.MergedFill.EMPTY;
 
             try (InputStream sheet = openSheet(reader, selector)) {
                 SheetSaxHandler saxHandler =
@@ -98,8 +100,13 @@ public final class PoiStreamingSheetReader implements StreamingSheetReader {
     /**
      * Предпроход: {@code mergeCells} в XML стоит после {@code sheetData}, поэтому
      * диапазоны и значения их верхних левых ячеек собираются отдельным проходом.
+     *
+     * <p>Возвращает {@link SheetSaxHandler.MergedFill} — структуру размером
+     * O(число диапазонов), а не O(число покрытых ячеек): сами значения не размножаются
+     * заранее по всем покрытым адресам, это делается лениво при выдаче каждой строки
+     * (см. {@link SheetSaxHandler.MergedFill#apply}).
      */
-    private Map<Integer, Map<Integer, CellValue>> collectMergedRanges(
+    private SheetSaxHandler.MergedFill collectMergedRanges(
             XSSFReader reader,
             SheetSelector selector,
             ReadOnlySharedStringsTable strings,
@@ -107,7 +114,7 @@ public final class PoiStreamingSheetReader implements StreamingSheetReader {
             ReadOptions options)
             throws IOException, SAXException,
                     org.apache.poi.openxml4j.exceptions.InvalidFormatException {
-        java.util.List<CellRangeAddress> ranges = new java.util.ArrayList<>();
+        List<CellRangeAddress> ranges = new ArrayList<>();
         try (InputStream sheet = openSheet(reader, selector)) {
             newParser().parse(new InputSource(sheet), new DefaultHandler() {
                 @Override
@@ -119,33 +126,35 @@ public final class PoiStreamingSheetReader implements StreamingSheetReader {
             });
         }
         if (ranges.isEmpty()) {
-            return Map.of();
+            // Ни одного диапазона — короткий предпроход анкоров не нужен вовсе.
+            return SheetSaxHandler.MergedFill.EMPTY;
+        }
+
+        // Диапазоны индексируются по первой строке, чтобы предпроход анкоров делал одно
+        // обращение к карте на строку, а не перебирал все диапазоны для каждой строки
+        // (иначе 100 000 строк × 1 000 диапазонов — 10^8 сравнений на пустом месте).
+        Map<Integer, List<CellRangeAddress>> rangesByFirstRow = new HashMap<>();
+        for (CellRangeAddress range : ranges) {
+            rangesByFirstRow.computeIfAbsent(range.getFirstRow(), key -> new ArrayList<>()).add(range);
         }
 
         // Собираем значения верхних левых ячеек диапазонов вторым коротким проходом.
-        Map<Integer, Map<Integer, CellValue>> anchors = new HashMap<>();
+        Map<CellRangeAddress, CellValue> anchors = new HashMap<>();
         ReadOptions rawOptions = new ReadOptions(false, false, options.formulaPolicy());
         try (InputStream sheet = openSheet(reader, selector)) {
             SheetSaxHandler collector = new SheetSaxHandler(
-                    strings, styles, rawOptions, Map.of(), row -> {
-                        for (CellRangeAddress range : ranges) {
-                            if (range.getFirstRow() == row.rowIndex()) {
-                                anchors.computeIfAbsent(row.rowIndex(), key -> new HashMap<>())
-                                        .put(range.getFirstColumn(), row.cell(range.getFirstColumn()));
-                            }
+                    strings, styles, rawOptions, SheetSaxHandler.MergedFill.EMPTY, row -> {
+                        List<CellRangeAddress> startingHere = rangesByFirstRow.get(row.rowIndex());
+                        if (startingHere == null) {
+                            return;
+                        }
+                        for (CellRangeAddress range : startingHere) {
+                            anchors.put(range, row.cell(range.getFirstColumn()));
                         }
                     });
             newParser().parse(new InputSource(sheet), collector);
         }
 
-        Map<Integer, Map<Integer, CellValue>> fill = new HashMap<>();
-        for (CellRangeAddress range : ranges) {
-            Map<Integer, CellValue> rowAnchors = anchors.get(range.getFirstRow());
-            CellValue anchor = rowAnchors == null ? null : rowAnchors.get(range.getFirstColumn());
-            if (anchor != null && !anchor.isBlank()) {
-                SheetSaxHandler.registerMerged(fill, range, anchor);
-            }
-        }
-        return fill;
+        return SheetSaxHandler.MergedFill.of(ranges, anchors);
     }
 }

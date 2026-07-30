@@ -1,0 +1,17 @@
+<configuration>
+    <!--
+      Без этого файла logback-classic (testRuntimeOnly) поднимает BasicConfigurator
+      с уровнем DEBUG для root-логгера, и внутренние DEBUG-сообщения POI (через мост
+      log4j-to-slf4j) засоряют вывод тестов. Ограничиваем root уровнем WARN, чтобы
+      вывод тестов оставался чистым, но реальные предупреждения/ошибки не терялись.
+    -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} -- %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="WARN">
+        <appender-ref ref="CONSOLE" />
+    </root>
+</configuration>

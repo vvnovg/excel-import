@@ -10,7 +10,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -196,5 +199,89 @@ class PoiStreamingSheetReaderTest {
                 .hasMessage("стоп");
 
         assertThat(seen).hasSize(2);
+    }
+
+    // --- объединённые ячейки ---
+
+    @Test
+    void mergedRangeWithPreCreatedBlankPlaceholderCellsIsExpanded() {
+        // Реальный Excel пишет неякорные ячейки объединённого диапазона как присутствующие,
+        // но пустые стилизованные ячейки (<c r="B1" s="3"/>), а не опускает их вовсе.
+        // Фикстура здесь явно создаёт такие placeholder-ячейки перед addMergedRegion —
+        // фикстура, построенная только через addMergedRegion, эту ошибку не воспроизводит.
+        Path file = XlsxFixtures.workbook(tempDir, "Лист1", sheet -> {
+            var style = sheet.getWorkbook().createCellStyle();
+            Row row = sheet.createRow(0);
+            row.createCell(0).setCellValue("Итого");
+            Cell placeholder = row.createCell(1); // присутствует в XML, но без значения
+            placeholder.setCellStyle(style);
+            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 1));
+        });
+
+        RawRow row = readAll(file, SheetSelector.first(), ReadOptions.defaults()).get(0);
+
+        assertThat(row.cell(1).asString()).isEqualTo("Итого");
+        assertThat(row.cell(1).type()).isEqualTo(CellType.STRING);
+    }
+
+    @Test
+    void mergedRangeAcrossRowsAndColumnsExpandsToEveryCoveredAddressWithItsOwnAddress() {
+        Path file = XlsxFixtures.workbook(tempDir, "Лист1", sheet -> {
+            sheet.createRow(0).createCell(0).setCellValue("Блок");
+            sheet.createRow(1); // строка существует в XML, хоть и без своих ячеек
+            sheet.addMergedRegion(new CellRangeAddress(0, 1, 0, 1)); // A1:B2
+        });
+
+        List<RawRow> rows = readAll(file, SheetSelector.first(), ReadOptions.defaults());
+
+        assertThat(rows.get(0).cell(0).asString()).isEqualTo("Блок");
+        assertThat(rows.get(0).cell(0).address().toString()).isEqualTo("A1");
+        assertThat(rows.get(0).cell(1).asString()).isEqualTo("Блок");
+        assertThat(rows.get(0).cell(1).address().toString()).isEqualTo("B1");
+        assertThat(rows.get(1).cell(0).asString()).isEqualTo("Блок");
+        assertThat(rows.get(1).cell(0).address().toString()).isEqualTo("A2");
+        assertThat(rows.get(1).cell(1).asString()).isEqualTo("Блок");
+        assertThat(rows.get(1).cell(1).address().toString()).isEqualTo("B2");
+    }
+
+    @Test
+    void nonBlankCellInsideMergedRangeIsNotOverwrittenByAnchorValue() {
+        Path file = XlsxFixtures.workbook(tempDir, "Лист1", sheet -> {
+            Row row = sheet.createRow(0);
+            row.createCell(0).setCellValue("Анкор");
+            row.createCell(1).setCellValue("Своё значение");
+            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 1));
+        });
+
+        RawRow row = readAll(file, SheetSelector.first(), ReadOptions.defaults()).get(0);
+
+        assertThat(row.cell(1).asString()).isEqualTo("Своё значение");
+    }
+
+    @Test
+    void expandMergedCellsFalseLeavesCoveredCellsBlank() {
+        Path file = XlsxFixtures.workbook(tempDir, "Лист1", sheet -> {
+            sheet.createRow(0).createCell(0).setCellValue("Анкор");
+            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 1));
+        });
+
+        ReadOptions options = new ReadOptions(true, false, FormulaPolicy.AS_NULL);
+        RawRow row = readAll(file, SheetSelector.first(), options).get(0);
+
+        assertThat(row.cell(1).isBlank()).isTrue();
+    }
+
+    @Test
+    void fileWithNoMergedRangesReadsCorrectly() {
+        Path file = XlsxFixtures.simpleSheet(tempDir, new Object[][] {
+            {"A", "B"},
+            {"a1", "b1"},
+        });
+
+        List<RawRow> rows = readAll(file, SheetSelector.first(), ReadOptions.defaults());
+
+        assertThat(rows).hasSize(2);
+        assertThat(rows.get(1).cell(0).asString()).isEqualTo("a1");
+        assertThat(rows.get(1).cell(1).asString()).isEqualTo("b1");
     }
 }

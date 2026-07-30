@@ -1,7 +1,10 @@
 package io.github.excelimport.internal.read;
 
 import io.github.excelimport.convert.CellValue;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.apache.poi.ss.usermodel.CellType;
@@ -24,7 +27,7 @@ final class SheetSaxHandler extends DefaultHandler {
     private final SharedStrings sharedStrings;
     private final StylesTable styles;
     private final ReadOptions options;
-    private final Map<Integer, Map<Integer, CellValue>> mergedFill;
+    private final MergedFill mergedFill;
     private final Consumer<RawRow> handler;
 
     private int currentRowIndex = -1;
@@ -43,7 +46,7 @@ final class SheetSaxHandler extends DefaultHandler {
             SharedStrings sharedStrings,
             StylesTable styles,
             ReadOptions options,
-            Map<Integer, Map<Integer, CellValue>> mergedFill,
+            MergedFill mergedFill,
             Consumer<RawRow> handler) {
         this.sharedStrings = sharedStrings;
         this.styles = styles;
@@ -222,10 +225,7 @@ final class SheetSaxHandler extends DefaultHandler {
     private void emitRow() {
         Map<Integer, CellValue> cells = currentCells;
         if (options.expandMergedCells()) {
-            Map<Integer, CellValue> fill = mergedFill.get(currentRowIndex);
-            if (fill != null) {
-                fill.forEach(cells::putIfAbsent);
-            }
+            mergedFill.apply(currentRowIndex, cells);
         }
         RawRow row = new RawRow(currentRowIndex, cells);
         currentCells = null;
@@ -236,21 +236,74 @@ final class SheetSaxHandler extends DefaultHandler {
     }
 
     /**
-     * Заполняет карту «строка → (колонка → значение)» значениями верхних левых ячеек
-     * объединённых диапазонов. Вызывается предпроходом, потому что {@code mergeCells}
-     * в XML идёт после {@code sheetData}.
+     * Диапазоны объединённых ячеек с известным (непустым) значением якоря, готовые к
+     * заполнению покрытых ячеек «на лету» при выдаче каждой строки.
+     *
+     * <p>Хранит ровно {@code merges.size()} записей — по одной на диапазон, а не по одной
+     * на каждую покрытую ячейку. Это принципиально: диапазон вида {@code A1:A100000}
+     * покрывает 100 000 ячеек, но должен занимать столько же памяти, сколько диапазон
+     * {@code A1:A2} — иначе потребление кучи растёт с числом строк файла, что запрещено
+     * ограничением проекта (100 000 строк × 10 колонок должны читаться под {@code -Xmx256m}).
+     *
+     * <p>{@link #apply(int, Map)} вызывается для строк в порядке возрастания индекса (как их
+     * отдаёт SAX-парсер), поэтому используется скользящее окно (sweep line) по диапазонам,
+     * отсортированным по первой строке: каждый диапазон добавляется в «активные» и убирается
+     * из них не более одного раза за весь проход. Побочный эффект: при заполнении текущей
+     * строки перебираются только диапазоны, реально её покрывающие (обычно единицы), а не
+     * все диапазоны листа.
      */
-    static void registerMerged(
-            Map<Integer, Map<Integer, CellValue>> target,
-            CellRangeAddress range,
-            CellValue anchorValue) {
-        for (int r = range.getFirstRow(); r <= range.getLastRow(); r++) {
-            for (int c = range.getFirstColumn(); c <= range.getLastColumn(); c++) {
-                if (r == range.getFirstRow() && c == range.getFirstColumn()) {
-                    continue;
+    static final class MergedFill {
+
+        static final MergedFill EMPTY = new MergedFill(List.of());
+
+        private record Merge(CellRangeAddress range, CellValue anchor) {}
+
+        private final List<Merge> merges;
+        private final List<Merge> active = new ArrayList<>();
+        private int cursor;
+
+        private MergedFill(List<Merge> merges) {
+            this.merges = merges;
+        }
+
+        /**
+         * Строит заполнитель из диапазонов и значений их верхних левых ячеек. Диапазоны с
+         * отсутствующим или пустым якорем отбрасываются — заполнять для них нечем.
+         */
+        static MergedFill of(List<CellRangeAddress> ranges, Map<CellRangeAddress, CellValue> anchors) {
+            List<Merge> merges = new ArrayList<>();
+            for (CellRangeAddress range : ranges) {
+                CellValue anchor = anchors.get(range);
+                if (anchor != null && !anchor.isBlank()) {
+                    merges.add(new Merge(range, anchor));
                 }
-                target.computeIfAbsent(r, key -> new HashMap<>())
-                        .put(c, copyTo(anchorValue, new CellAddress(r, c)));
+            }
+            merges.sort(Comparator.comparingInt(m -> m.range().getFirstRow()));
+            return merges.isEmpty() ? EMPTY : new MergedFill(merges);
+        }
+
+        void apply(int rowIndex, Map<Integer, CellValue> cells) {
+            if (merges.isEmpty()) {
+                return;
+            }
+            active.removeIf(m -> m.range().getLastRow() < rowIndex);
+            while (cursor < merges.size() && merges.get(cursor).range().getFirstRow() <= rowIndex) {
+                active.add(merges.get(cursor));
+                cursor++;
+            }
+            for (Merge m : active) {
+                CellRangeAddress range = m.range();
+                for (int c = range.getFirstColumn(); c <= range.getLastColumn(); c++) {
+                    if (rowIndex == range.getFirstRow() && c == range.getFirstColumn()) {
+                        continue; // сама ячейка-якорь — её значение уже верно в currentCells
+                    }
+                    CellValue existing = cells.get(c);
+                    // непустой существующий (например, ещё один якорь) значение не трогаем;
+                    // отсутствующую или пустую (placeholder-стиль без значения) ячейку — заполняем
+                    if (existing == null || existing.isBlank()) {
+                        cells.put(c, copyTo(m.anchor(), new CellAddress(rowIndex, c)));
+                    }
+                }
             }
         }
     }

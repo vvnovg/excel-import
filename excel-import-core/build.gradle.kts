@@ -29,6 +29,11 @@ dependencies {
     testImplementation(libs.mockito)
     testImplementation(libs.mockito.junit)
     testRuntimeOnly(libs.logback.classic)
+    // POI логирует через log4j-api; без моста тесты печатают
+    // "ERROR Log4j API could not find a logging provider". Мост маршрутизирует
+    // log4j2 -> SLF4J -> logback (уже testRuntimeOnly выше). Только для тестов,
+    // в main рантайм не добавляется.
+    testRuntimeOnly(libs.log4j.to.slf4j)
 
     "integrationTestImplementation"(libs.testcontainers.postgresql)
     "integrationTestImplementation"(libs.testcontainers.junit)
