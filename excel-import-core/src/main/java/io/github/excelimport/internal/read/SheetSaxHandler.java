@@ -239,7 +239,7 @@ final class SheetSaxHandler extends DefaultHandler {
     private void emitRow() {
         Map<Integer, CellValue> cells = currentCells;
         if (options.expandMergedCells()) {
-            mergedFill.apply(currentRowIndex, cells);
+            mergedFill.apply(currentRowIndex, cells, date1904);
         }
         RawRow row = new RawRow(currentRowIndex, cells);
         currentCells = null;
@@ -259,7 +259,7 @@ final class SheetSaxHandler extends DefaultHandler {
      * {@code A1:A2} — иначе потребление кучи растёт с числом строк файла, что запрещено
      * ограничением проекта (100 000 строк × 10 колонок должны читаться под {@code -Xmx256m}).
      *
-     * <p>{@link #apply(int, Map)} вызывается для строк в порядке возрастания индекса (как их
+     * <p>{@link #apply(int, Map, boolean)} вызывается для строк в порядке возрастания индекса (как их
      * отдаёт SAX-парсер), поэтому используется скользящее окно (sweep line) по диапазонам,
      * отсортированным по первой строке: каждый диапазон добавляется в «активные» и убирается
      * из них не более одного раза за весь проход. Побочный эффект: при заполнении текущей
@@ -270,7 +270,7 @@ final class SheetSaxHandler extends DefaultHandler {
 
         static final MergedFill EMPTY = new MergedFill(List.of());
 
-        private record Merge(CellRangeAddress range, ImmutableCellValue anchor) {}
+        private record Merge(CellRangeAddress range, CellValue anchor) {}
 
         private final List<Merge> merges;
         private final List<Merge> active = new ArrayList<>();
@@ -283,25 +283,26 @@ final class SheetSaxHandler extends DefaultHandler {
         /**
          * Строит заполнитель из диапазонов и значений их верхних левых ячеек. Диапазоны с
          * отсутствующим или пустым якорем отбрасываются — заполнять для них нечем.
-         *
-         * <p>Приведение к {@link ImmutableCellValue} безопасно: единственная другая
-         * реализация {@code CellValue} — это пустая ячейка ({@code BlankCellValue} /
-         * {@code ImmutableCellValue} с типом {@code BLANK}), а такие отфильтровываются
-         * проверкой {@code anchor.isBlank()} чуть выше.
          */
         static MergedFill of(List<CellRangeAddress> ranges, Map<CellRangeAddress, CellValue> anchors) {
             List<Merge> merges = new ArrayList<>();
             for (CellRangeAddress range : ranges) {
                 CellValue anchor = anchors.get(range);
                 if (anchor != null && !anchor.isBlank()) {
-                    merges.add(new Merge(range, (ImmutableCellValue) anchor));
+                    merges.add(new Merge(range, anchor));
                 }
             }
             merges.sort(Comparator.comparingInt(m -> m.range().getFirstRow()));
             return merges.isEmpty() ? EMPTY : new MergedFill(merges);
         }
 
-        void apply(int rowIndex, Map<Integer, CellValue> cells) {
+        /**
+         * @param date1904 система дат книги — читается из поля {@link SheetSaxHandler}, а не
+         *     с якоря: якорь хранится как {@link CellValue} (интерфейс), у которого нет
+         *     собственного метода для этого флага, и заводить его только ради данного
+         *     внутреннего использования не стоит.
+         */
+        void apply(int rowIndex, Map<Integer, CellValue> cells, boolean date1904) {
             if (merges.isEmpty()) {
                 return;
             }
@@ -320,23 +321,29 @@ final class SheetSaxHandler extends DefaultHandler {
                     // непустой существующий (например, ещё один якорь) значение не трогаем;
                     // отсутствующую или пустую (placeholder-стиль без значения) ячейку — заполняем
                     if (existing == null || existing.isBlank()) {
-                        cells.put(c, copyTo(m.anchor(), new CellAddress(rowIndex, c)));
+                        cells.put(c, copyTo(m.anchor(), new CellAddress(rowIndex, c), date1904));
                     }
                 }
             }
         }
-    }
 
-    private static CellValue copyTo(ImmutableCellValue source, CellAddress address) {
-        return new ImmutableCellValue(
-                address,
-                source.type(),
-                source.dateFormatted(),
-                source.asString(),
-                source.asNumeric(),
-                source.asBoolean(),
-                source.formula(),
-                source.errorCode(),
-                source.date1904());
+        /**
+         * Копирует значение якоря на покрытый адрес через собственные методы доступа
+         * {@link CellValue} — без приведения к какой-либо конкретной реализации. Якорь может
+         * быть любой реализацией {@code CellValue} (интерфейс публичный и не запечатан), а не
+         * только {@link ImmutableCellValue}.
+         */
+        private static CellValue copyTo(CellValue source, CellAddress address, boolean date1904) {
+            return new ImmutableCellValue(
+                    address,
+                    source.type(),
+                    source.dateFormatted(),
+                    source.asString(),
+                    source.asNumeric(),
+                    source.asBoolean(),
+                    source.formula(),
+                    source.errorCode(),
+                    date1904);
+        }
     }
 }

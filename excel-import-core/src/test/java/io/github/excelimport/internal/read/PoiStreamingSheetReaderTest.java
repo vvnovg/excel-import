@@ -8,6 +8,8 @@ import io.github.excelimport.exception.FileStructureException;
 import io.github.excelimport.testsupport.XlsxFixtures;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.poi.ss.usermodel.Cell;
@@ -269,6 +271,27 @@ class PoiStreamingSheetReaderTest {
         RawRow row = readAll(file, SheetSelector.first(), options).get(0);
 
         assertThat(row.cell(1).isBlank()).isTrue();
+    }
+
+    @Test
+    void mergedRangeWithDateFormattedAnchorPropagatesDateToCoveredRows() {
+        // Якорь A1 — дата со стилем формата даты; диапазон A1:A3 покрывает ещё две строки.
+        // Покрытая ячейка в более поздней строке должна унаследовать и значение, и признак
+        // даты, а не только текст/число.
+        LocalDate date = LocalDate.of(2026, 7, 29);
+        Path file = XlsxFixtures.workbook(tempDir, "Лист1", sheet -> {
+            XlsxFixtures.fill(sheet, new Object[][] {{date}});
+            sheet.createRow(1); // строка существует в XML, хоть и без своих ячеек
+            sheet.createRow(2);
+            sheet.addMergedRegion(new CellRangeAddress(0, 2, 0, 0)); // A1:A3
+        });
+
+        List<RawRow> rows = readAll(file, SheetSelector.first(), ReadOptions.defaults());
+
+        RawRow covered = rows.get(2); // третья строка — покрыта диапазоном, но не якорь
+        assertThat(covered.cell(0).address().toString()).isEqualTo("A3");
+        assertThat(covered.cell(0).dateFormatted()).isTrue();
+        assertThat(covered.cell(0).asLocalDateTime()).isEqualTo(LocalDateTime.of(2026, 7, 29, 0, 0));
     }
 
     @Test
