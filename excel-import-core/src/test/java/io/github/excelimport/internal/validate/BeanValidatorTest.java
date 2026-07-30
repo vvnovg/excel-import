@@ -208,6 +208,30 @@ class BeanValidatorTest {
                 });
     }
 
+    /**
+     * {@code src/test/resources/ValidationMessages_ru.properties} defines a bare key
+     * {@code value} — named after the JSR-380 {@code {value}} placeholder used by
+     * {@code @Min}'s message, not after any real JSR-380 message key. If the interpolator's
+     * placeholder-substitution hook re-enters full bundle-key resolution a second time (on a
+     * delegate whose locators default to the plain, unnamespaced root {@code ValidationMessages}
+     * bundle — exactly the fixture above), that second lookup finds {@code value} as a "message
+     * key" and substitutes its bogus text for the real numeric limit. The correctly-fixed
+     * interpolator performs only parameter substitution for the term and never re-resolves the
+     * bundle at all, so this must still render the real limit.
+     */
+    @Test
+    void placeholderTermIsNotReResolvedAgainstConsumerBundle() {
+        Employee bean = new Employee();
+        bean.fullName = "Иван";
+        bean.years = -1;
+
+        assertThat(validator.validate(bean, 7)).singleElement()
+                .satisfies(error -> {
+                    assertThat(error.code()).isEqualTo("Min");
+                    assertThat(error.message()).isEqualTo("значение должно быть не меньше 0");
+                });
+    }
+
     // --- Finding 2: total, collision-proof sort order --------------------------------
 
     @Target(ElementType.FIELD)
@@ -302,5 +326,73 @@ class BeanValidatorTest {
             assertThat(errors.get(2).columnHeader()).isEqualTo("AB");
             assertThat(errors.get(2).code()).isEqualTo("C");
         }
+    }
+
+    @ExcelSheet(name = "DuplicateMin")
+    static class DuplicateSameMessageBean {
+        @ExcelColumn(header = "Число")
+        @Min.List({
+            @Min(value = 0, message = "недопустимое значение"),
+            @Min(value = -5, message = "недопустимое значение")
+        })
+        int number = -10;
+    }
+
+    /**
+     * Two {@code @Min} constraints on the SAME field, both violated by the same value, with a
+     * literal (not {@code {value}}-based) {@code message()} that is identical for both. This
+     * makes header (same field), code (both "Min"), message (identical literal text) — AND
+     * rawValue (same field's actual value, "-10" both times) — all collide between the two
+     * resulting {@code RowError}s. That last point matters: it means the two RowErrors are
+     * indistinguishable through any field visible on {@code RowError} — they are `.equals()`
+     * to each other — so this test can only confirm the pipeline produces exactly the two
+     * expected (content-identical-looking) rows without throwing; it cannot observe which
+     * physical violation ended up first, since swapping two equal elements doesn't change
+     * list equality. The actual ordering claim is pinned separately, directly against the
+     * comparator, in {@link #violationOrderIsTotalForRealisticHeaderCodeMessageCollision()}.
+     */
+    @Test
+    void duplicateConstraintsCollidingOnHeaderCodeMessageAndRawValueAreAllCollected() {
+        MappingModel<DuplicateSameMessageBean> duplicateModel =
+                MappingModelFactory.create(DuplicateSameMessageBean.class, NamingStrategy.SNAKE_CASE);
+        try (BeanValidator duplicateValidator = new BeanValidator(Locale.forLanguageTag("ru"), duplicateModel)) {
+            List<io.github.excelimport.RowError> errors =
+                    duplicateValidator.validate(new DuplicateSameMessageBean(), 9);
+
+            assertThat(errors).hasSize(2);
+            assertThat(errors).allSatisfy(error -> {
+                assertThat(error.columnHeader()).isEqualTo("Число");
+                assertThat(error.code()).isEqualTo("Min");
+                assertThat(error.message()).isEqualTo("недопустимое значение");
+                assertThat(error.rawValue()).isEqualTo("-10");
+            });
+        }
+    }
+
+    /**
+     * Direct comparator test (per the task's escape hatch: "if you cannot construct that case
+     * with real constraints, [...] test the comparator directly"). The real-constraints case
+     * above proves the pipeline doesn't crash and collects both violations, but — as explained
+     * there — it cannot observe ordering, because the two resulting {@code RowError}s are
+     * `.equals()`. This test instead wraps the SAME {@code RowError} instance in two {@code
+     * Violation}s with different {@code attributeFingerprint}s (standing in for two constraints
+     * whose own attributes — e.g. {@code @Min}'s {@code value=-5} vs {@code value=0} — differ
+     * even though header/code/message coincide) and asserts: (1) the comparator never returns 0
+     * for the two distinct fingerprints — it is total; (2) the relative order is a fixed
+     * function of the fingerprints themselves, not of argument/call order or object identity —
+     * i.e. reproducible, unlike a tiebreaker derived from {@code Set} iteration order would be.
+     */
+    @Test
+    void violationOrderIsTotalForRealisticHeaderCodeMessageCollision() {
+        io.github.excelimport.RowError shared =
+                io.github.excelimport.RowError.constraint(9, "Число", "-10", "Min", "недопустимое значение");
+        BeanValidator.Violation lowerValue =
+                new BeanValidator.Violation(shared, "groups=[],message=недопустимое значение,payload=[],value=-5");
+        BeanValidator.Violation higherValue =
+                new BeanValidator.Violation(shared, "groups=[],message=недопустимое значение,payload=[],value=0");
+
+        assertThat(BeanValidator.VIOLATION_ORDER.compare(lowerValue, higherValue)).isNegative();
+        assertThat(BeanValidator.VIOLATION_ORDER.compare(higherValue, lowerValue)).isPositive();
+        assertThat(BeanValidator.VIOLATION_ORDER.compare(lowerValue, lowerValue)).isZero();
     }
 }
