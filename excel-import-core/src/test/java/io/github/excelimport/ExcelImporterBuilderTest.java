@@ -33,7 +33,53 @@ class ExcelImporterBuilderTest {
         public WithoutTable() {}
     }
 
+    /** Заголовок не в первой строке — проверяем, что конфиг не подменяет его молча. */
+    @ExcelSheet(name = "S", headerRow = 2)
+    @TargetTable(name = "t")
+    public static class HeaderOnThirdRow {
+        @ExcelColumn(header = "A")
+        @Column("a")
+        public String a;
+
+        public HeaderOnThirdRow() {}
+    }
+
     private final DataSource dataSource = mock(DataSource.class);
+
+    @Test
+    void firstDataRowAloneDoesNotResetHeaderRowFromAnnotation() {
+        // headerRow остаётся 2 из @ExcelSheet, поэтому firstDataRow(1) с ним несовместим.
+        // Пока флаг «задано» был общим на оба параметра, headerRow брался из конфига (0),
+        // пара 0/1 считалась валидной, и строка заголовка молча уезжала на первую строку.
+        assertThatThrownBy(() -> ExcelImporter.builder(HeaderOnThirdRow.class)
+                        .dataSource(dataSource)
+                        .config(ImportConfig.builder().firstDataRow(1).build())
+                        .build())
+                .isInstanceOf(MappingConfigurationException.class)
+                .hasMessageContaining("firstDataRow")
+                .hasMessageContaining("headerRow");
+    }
+
+    @Test
+    void firstDataRowAloneIsAcceptedWhenCompatibleWithAnnotatedHeaderRow() {
+        try (ExcelImporter<HeaderOnThirdRow> importer = ExcelImporter.builder(HeaderOnThirdRow.class)
+                .dataSource(dataSource)
+                .config(ImportConfig.builder().firstDataRow(5).build())
+                .build()) {
+            assertThat(importer).isNotNull();
+        }
+    }
+
+    @Test
+    void headerRowAloneAlsoShiftsFirstDataRow() {
+        // firstDataRow не задан — выводится от нового заголовка, а не остаётся from @ExcelSheet
+        try (ExcelImporter<HeaderOnThirdRow> importer = ExcelImporter.builder(HeaderOnThirdRow.class)
+                .dataSource(dataSource)
+                .config(ImportConfig.builder().headerRow(7).build())
+                .build()) {
+            assertThat(importer).isNotNull();
+        }
+    }
 
     @Test
     void buildsWithAnnotationDrivenTable() {

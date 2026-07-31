@@ -44,6 +44,32 @@ class ImportConfigTest {
         assertThat(config.dryRun()).isTrue();
     }
 
+    /**
+     * Явный {@code headerRow(0)} должен отличаться от «не задано»: иначе конфигурация
+     * не может переопределить {@code @ExcelSheet(headerRow = N)} обратно на нулевую строку.
+     */
+    @Test
+    void explicitZeroHeaderRowIsDistinguishedFromUnset() {
+        ImportConfig nothingSet = ImportConfig.builder().build();
+        assertThat(nothingSet.headerRowExplicit()).isFalse();
+        assertThat(nothingSet.firstDataRowExplicit()).isFalse();
+
+        // флаги раздельные: задание одного параметра не объявляет заданным другой,
+        // иначе headerRow из @ExcelSheet молча подменялся бы нулём по умолчанию
+        ImportConfig onlyHeaderRow = ImportConfig.builder().headerRow(0).build();
+        assertThat(onlyHeaderRow.headerRowExplicit()).isTrue();
+        assertThat(onlyHeaderRow.firstDataRowExplicit()).isFalse();
+
+        ImportConfig onlyFirstDataRow = ImportConfig.builder().firstDataRow(1).build();
+        assertThat(onlyFirstDataRow.headerRowExplicit()).isFalse();
+        assertThat(onlyFirstDataRow.firstDataRowExplicit()).isTrue();
+
+        // значения, видимые снаружи, при этом не меняются
+        ImportConfig unset = ImportConfig.builder().build();
+        assertThat(unset.headerRow()).isZero();
+        assertThat(unset.firstDataRow()).isEqualTo(1);
+    }
+
     @Test
     void rejectsNonPositiveBatchSize() {
         assertThatThrownBy(() -> ImportConfig.builder().batchSize(0).build())

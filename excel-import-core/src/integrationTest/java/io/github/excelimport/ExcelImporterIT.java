@@ -309,6 +309,32 @@ class ExcelImporterIT {
         }
     }
 
+    /**
+     * {@code headerRow}/{@code firstDataRow} из {@link ImportConfig} — самостоятельные
+     * настройки, а не довесок к {@code sheet}: они обязаны переопределять
+     * {@code @ExcelSheet} и тогда, когда лист берётся из аннотации.
+     */
+    @Test
+    void configHeaderRowOverridesAnnotationWithoutSheetOverride() {
+        Path file = fixture(new Object[][] {
+            {"Отчёт по сотрудникам"},
+            {null},
+            {"Номер", "ФИО", "Стаж"},
+            {1, "Иванов", 3},
+        });
+
+        // Employee объявляет @ExcelSheet(headerRow = 0); sheet намеренно не переопределяем
+        try (ExcelImporter<Employee> excelImporter =
+                importer(ImportConfig.builder().headerRow(2).build()).build()) {
+            ImportReport report = excelImporter.importFile(file);
+
+            assertThat(report.status()).isEqualTo(ImportStatus.SUCCESS);
+            assertThat(report.totalRows()).isEqualTo(1);
+            assertThat(report.insertedRows()).isEqualTo(1);
+            assertThat(PostgresSupport.countRows("employee")).isEqualTo(1);
+        }
+    }
+
     @Test
     void importFromInputStreamWorks() throws Exception {
         Path file = fixture(new Object[][] {

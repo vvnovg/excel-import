@@ -65,8 +65,30 @@ public final class ExcelImporter<T> implements AutoCloseable {
                     "не задана таблица-приёмник: добавьте @TargetTable на " + builder.type.getName()
                             + " или ImportConfig.targetTable(...)");
         }
-        if (config.sheet() != null) {
-            parsed = parsed.withSheet(config.sheet(), config.headerRow(), config.firstDataRow());
+        // лист и расположение заголовка переопределяются независимо друг от друга:
+        // ImportConfig.headerRow/firstDataRow — самостоятельные настройки, а не довесок
+        // к sheet, и наоборот — смена листа не должна сбрасывать headerRow из @ExcelSheet
+        if (config.sheet() != null || config.headerRowExplicit() || config.firstDataRowExplicit()) {
+            SheetSelector sheet = config.sheet() != null ? config.sheet() : parsed.sheet();
+            int headerRow =
+                    config.headerRowExplicit() ? config.headerRow() : parsed.headerRowIndex();
+            int firstDataRow;
+            if (config.firstDataRowExplicit()) {
+                firstDataRow = config.firstDataRow();
+            } else if (config.headerRowExplicit()) {
+                // заголовок сместили, а первую строку данных — нет: выводим от нового заголовка,
+                // иначе осталось бы значение из @ExcelSheet, посчитанное от старого
+                firstDataRow = headerRow + 1;
+            } else {
+                firstDataRow = parsed.firstDataRowIndex();
+            }
+            if (firstDataRow <= headerRow) {
+                throw new MappingConfigurationException("firstDataRow (" + firstDataRow
+                        + ") должен быть больше headerRow (" + headerRow
+                        + "); значения сведены из ImportConfig и @ExcelSheet на "
+                        + builder.type.getName());
+            }
+            parsed = parsed.withSheet(sheet, headerRow, firstDataRow);
         }
         this.model = parsed;
         this.reader = builder.reader != null ? builder.reader : new PoiStreamingSheetReader();

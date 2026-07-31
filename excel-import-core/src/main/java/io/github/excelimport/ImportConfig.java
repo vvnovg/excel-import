@@ -14,6 +14,8 @@ public final class ImportConfig {
     private final SheetSelector sheet;
     private final int headerRow;
     private final int firstDataRow;
+    private final boolean headerRowExplicit;
+    private final boolean firstDataRowExplicit;
     private final boolean skipBlankRows;
     private final boolean expandMergedCells;
     private final FormulaPolicy formulaPolicy;
@@ -37,8 +39,10 @@ public final class ImportConfig {
     private ImportConfig(Builder builder) {
         this.batchSize = builder.batchSize;
         this.sheet = builder.sheet;
-        this.headerRow = builder.headerRow;
-        this.firstDataRow = builder.firstDataRow == null ? builder.headerRow + 1 : builder.firstDataRow;
+        this.headerRowExplicit = builder.headerRow != null;
+        this.firstDataRowExplicit = builder.firstDataRow != null;
+        this.headerRow = builder.headerRow == null ? 0 : builder.headerRow;
+        this.firstDataRow = builder.firstDataRow == null ? this.headerRow + 1 : builder.firstDataRow;
         this.skipBlankRows = builder.skipBlankRows;
         this.expandMergedCells = builder.expandMergedCells;
         this.formulaPolicy = builder.formulaPolicy;
@@ -79,6 +83,23 @@ public final class ImportConfig {
 
     public int firstDataRow() {
         return firstDataRow;
+    }
+
+    /**
+     * true, если {@code headerRow} задавался явно. Нужно, чтобы отличить «не задано»
+     * от явного {@code headerRow(0)}: в первом случае строка заголовка берётся из
+     * {@code @ExcelSheet}, во втором — из конфигурации.
+     *
+     * <p>Флаг раздельный с {@link #firstDataRowExplicit()}: настройки независимы, и
+     * задание одной не должно подменять другую значением по умолчанию.
+     */
+    boolean headerRowExplicit() {
+        return headerRowExplicit;
+    }
+
+    /** true, если {@code firstDataRow} задавался явно. См. {@link #headerRowExplicit()}. */
+    boolean firstDataRowExplicit() {
+        return firstDataRowExplicit;
     }
 
     public boolean skipBlankRows() {
@@ -170,7 +191,9 @@ public final class ImportConfig {
 
         private int batchSize = 1000;
         private SheetSelector sheet;
-        private int headerRow = 0;
+
+        /** null означает «не задано» — тогда расположение заголовка берётся из {@code @ExcelSheet}. */
+        private Integer headerRow;
 
         /** null означает «не задано» — вычисляется как {@code headerRow + 1} в {@link #build()}. */
         private Integer firstDataRow;
@@ -315,16 +338,17 @@ public final class ImportConfig {
             if (batchSize < 1) {
                 throw new IllegalArgumentException("batchSize должен быть >= 1, получено: " + batchSize);
             }
-            if (headerRow < 0) {
+            if (headerRow != null && headerRow < 0) {
                 throw new IllegalArgumentException("headerRow должен быть >= 0, получено: " + headerRow);
             }
             if (firstDataRow != null && firstDataRow < 0) {
                 throw new IllegalArgumentException(
                         "firstDataRow должен быть >= 0, получено: " + firstDataRow);
             }
-            if (firstDataRow != null && firstDataRow <= headerRow) {
-                throw new IllegalArgumentException(
-                        "firstDataRow (" + firstDataRow + ") должен быть больше headerRow (" + headerRow + ")");
+            int effectiveHeaderRow = headerRow == null ? 0 : headerRow;
+            if (firstDataRow != null && firstDataRow <= effectiveHeaderRow) {
+                throw new IllegalArgumentException("firstDataRow (" + firstDataRow
+                        + ") должен быть больше headerRow (" + effectiveHeaderRow + ")");
             }
             if (maxErrors < 0) {
                 throw new IllegalArgumentException("maxErrors должен быть >= 0");
