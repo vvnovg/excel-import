@@ -109,6 +109,15 @@ public class ExcelImportProperties {
 
     /** Собирает {@link ImportConfig} без пути отчёта — путь зависит от имени файла. */
     public ImportConfig toImportConfig() {
+        return toImportConfig(null);
+    }
+
+    /**
+     * Собирает {@link ImportConfig}, применяя все настроенные свойства и указанный путь
+     * отчёта. {@code null} эквивалентен {@link #toImportConfig()}. Единственная точка сборки
+     * билдера — {@link #toImportConfig()} делегирует сюда, чтобы два метода не разошлись.
+     */
+    public ImportConfig toImportConfig(Path reportPath) {
         return ImportConfig.builder()
                 .batchSize(batchSize)
                 .maxErrors(maxErrors)
@@ -123,6 +132,7 @@ public class ExcelImportProperties {
                 .locale(locale)
                 .tempDir(tempDir)
                 .conflictStrategy(conflict.toConflictStrategy())
+                .reportPath(reportPath)
                 .build();
     }
 

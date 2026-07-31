@@ -234,9 +234,7 @@ excel-import:
 
 ```java
 try (ExcelImporter<EmployeeRow> importer = importerFactory.create(EmployeeRow.class,
-        ImportConfig.builder()
-                .reportPath(properties.reportPathFor("employees.xlsx"))
-                .build())) {
+        properties.toImportConfig(properties.reportPathFor("employees.xlsx")))) {
     ImportReport report = importer.importFile(Path.of("employees.xlsx"));
 }
 ```
@@ -244,15 +242,28 @@ try (ExcelImporter<EmployeeRow> importer = importerFactory.create(EmployeeRow.cl
 - `importerFactory.create(EmployeeRow.class)` использует конфигурацию из свойств
   (`create(type, config)` позволяет переопределить её для конкретного импорта).
 - Свойства подхватывают тот же набор параметров, что и `ImportConfig` (см. таблицу
-  выше); значения по умолчанию совпадают с ядром.
+  выше); значения по умолчанию совпадают с ядром. `properties.toImportConfig(reportPath)`
+  собирает `ImportConfig` из всех настроенных свойств и подставляет путь отчёта одним
+  вызовом — в отличие от повторного вызова `ImportConfig.builder()` вручную, который
+  сбросил бы `batchSize`, `conflictStrategy`, `maxErrors` и остальное обратно к
+  дефолтам ядра. Есть и `toImportConfig()` без аргумента — для случаев без отчёта или
+  когда путь ещё не известен на момент сборки.
 - `reportPathFor(fileName)` строит путь отчёта из `report.directory` и
   `report.file-name-pattern` (плейсхолдер `{name}` — имя исходного файла без
   расширения); возвращает `null`, если отчёты выключены.
 - Фабрика автоматически подставляет в импортёр все бины `BatchValidator<?>`,
   а также (по одному, если объявлены) `ReportRowCustomizer`, `SqlErrorClassifier`,
   `ImportListener`. Валидаторы отбираются по параметру типа: `BatchValidator<EmployeeRow>`
-  применится к `EmployeeRow`, валидатор со стёртым типом (анонимный класс без
-  явного generic) — ко всем моделям.
+  применится к `EmployeeRow`. Параметр типа определяется рефлексией и у некоторых форм
+  валидатора стирается во время выполнения — лямбда (`BatchValidator<Row> v = (batch,
+  conn) -> ...`) и переиспользуемый generic-класс (`class GenericValidator<T> implements
+  BatchValidator<T>`) дают нерезолвируемый параметр. Такой валидатор **не** подключается
+  ни к одному импортёру (иначе он молча цеплялся бы к чужим строкам и падал
+  `ClassCastException` посреди импорта) — вместо этого при старте контекста пишется один
+  `WARN` с именем класса бина. Если нужен именно generic-валидатор, зарегистрируйте его
+  явно через `ExcelImporter.builder(...).batchValidator(...)`, а не как бин. Анонимный
+  класс без явного generic-аргумента (`new BatchValidator<>() {...}`) в эту категорию
+  **не** попадает — он сохраняет параметр типа и подключается как обычно.
 - `CellConverter`-бины автоматически не подхватываются: целевой тип поля из бина не
   выводится, а явный случай уже покрыт `@ExcelColumn(converter = ...)`. Регистрация
   по типу — вручную через `ExcelImporter.builder(...).converter(TargetType.class, conv)`
@@ -287,6 +298,17 @@ try (ExcelImporter<EmployeeRow> importer = importerFactory.create(EmployeeRow.cl
 
    Сообщения берутся из `ValidationMessages.properties`; локаль задаётся
    `ImportConfig.locale` (русские сообщения входят в поставку).
+
+   Бандл библиотеки специально называется `io.github.excelimport.ValidationMessages`, а
+   **не** `ValidationMessages` в корне classpath — так он не конфликтует с одноимённым
+   бандлом потребителя (`ResourceBundle` резолвит бандл целиком, а не по ключам: два
+   бандла с одинаковым именем на classpath — и один молча "проигрывает"). Порядок
+   резолва сообщения: сперва корневой `ValidationMessages` потребителя, затем бандл
+   библиотеки, и только затем встроенные сообщения Hibernate Validator — то есть любое
+   сообщение библиотеки можно переопределить своим файлом. EL-выражения `${...}`
+   никогда не вычисляются (в classpath намеренно нет реализации `jakarta.el`) и остаются
+   в сообщении как есть; плейсхолдеры `{параметр}` подставляются штатно. Литеральные
+   `{`, `}` и `$` в тексте сообщения экранируются обратным слэшем: `\{`, `\}`, `\$`.
 3. **`BatchValidator<T>`** — единственный императивный хук пользователя. Вызывается
    на собранном батче до вставки, в той же транзакции — значит видит данные,
    вставленные предыдущими батчами этого прогона, и может всё проверить одним

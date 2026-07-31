@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Создаёт типизированные {@link ExcelImporter} по классу модели, подставляя бины из
@@ -21,13 +23,17 @@ import javax.sql.DataSource;
  */
 public class ExcelImporterFactory {
 
+    private static final Logger log = LoggerFactory.getLogger(ExcelImporterFactory.class);
+
     private final DataSource dataSource;
     private final ImportConfig defaultConfig;
-    private final List<BatchValidator<?>> batchValidators;
+    private final List<ResolvedValidator> batchValidators;
     private final Map<Class<?>, CellConverter<?>> converters;
     private final ReportRowCustomizer reportRowCustomizer;
     private final SqlErrorClassifier sqlErrorClassifier;
     private final ImportListener listener;
+
+    private record ResolvedValidator(BatchValidator<?> validator, Class<?> rowType) {}
 
     public ExcelImporterFactory(
             DataSource dataSource,
@@ -39,11 +45,38 @@ public class ExcelImporterFactory {
             ImportListener listener) {
         this.dataSource = dataSource;
         this.defaultConfig = defaultConfig;
-        this.batchValidators = List.copyOf(batchValidators);
+        this.batchValidators = resolveValidators(batchValidators);
         this.converters = Map.copyOf(converters);
         this.reportRowCustomizer = reportRowCustomizer;
         this.sqlErrorClassifier = sqlErrorClassifier;
         this.listener = listener;
+    }
+
+    /**
+     * Разрешает параметр типа каждого валидатора один раз при создании фабрики.
+     * Валидатор, у которого параметр типа стёрт (лямбда или переиспользуемый generic-класс —
+     * оба дают {@code null}), в список не попадает: JVM подставила бы его во все импортёры
+     * молча, а implicit checkcast бросал бы {@code ClassCastException} на несовместимой
+     * строке где-то в середине импорта. Вместо этого — один {@code WARN} на такой бин.
+     */
+    private static List<ResolvedValidator> resolveValidators(List<BatchValidator<?>> validators) {
+        List<ResolvedValidator> resolved = new ArrayList<>();
+        for (BatchValidator<?> validator : validators) {
+            Class<?> rowType = resolveTypeParameter(validator.getClass());
+            if (rowType == null) {
+                log.warn(
+                        "Бин BatchValidator класса {} не подключён ни к одному импортёру: "
+                                + "не удалось определить параметр типа (лямбда или переиспользуемый "
+                                + "generic-класс стирают его во время выполнения). Чтобы исправить: "
+                                + "объявите именованный класс, реализующий BatchValidator<КонкретнаяСтрока>, "
+                                + "либо зарегистрируйте валидатор явно через "
+                                + "ExcelImporter.builder(...).batchValidator(...).",
+                        validator.getClass().getName());
+                continue;
+            }
+            resolved.add(new ResolvedValidator(validator, rowType));
+        }
+        return List.copyOf(resolved);
     }
 
     public <T> ExcelImporter<T> create(Class<T> type) {
@@ -71,17 +104,17 @@ public class ExcelImporterFactory {
     }
 
     /**
-     * Отбирает валидаторы, параметризованные указанным типом. Валидатор, у которого
-     * параметр типа стёрт (лямбда без явного generic), считается подходящим для любого
-     * типа — иначе он был бы бесполезен.
+     * Отбирает валидаторы, параметризованные указанным типом (включая случай, когда
+     * параметр — супертип {@code type}). Валидатор, у которого параметр типа стёрт во время
+     * выполнения (лямбда или переиспользуемый generic-класс), сюда никогда не попадает —
+     * он отсеян и залогирован ещё в конструкторе, см. {@link #resolveValidators}.
      */
     @SuppressWarnings("unchecked")
     public <T> List<BatchValidator<T>> batchValidatorsFor(Class<T> type) {
         List<BatchValidator<T>> matching = new ArrayList<>();
-        for (BatchValidator<?> validator : batchValidators) {
-            Class<?> parameter = resolveTypeParameter(validator.getClass());
-            if (parameter == null || parameter.isAssignableFrom(type)) {
-                matching.add((BatchValidator<T>) validator);
+        for (ResolvedValidator resolved : batchValidators) {
+            if (resolved.rowType().isAssignableFrom(type)) {
+                matching.add((BatchValidator<T>) resolved.validator());
             }
         }
         return List.copyOf(matching);

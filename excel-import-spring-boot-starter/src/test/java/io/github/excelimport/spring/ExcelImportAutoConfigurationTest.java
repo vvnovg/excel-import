@@ -32,6 +32,27 @@ class ExcelImportAutoConfigurationTest {
         public Row() {}
     }
 
+    /** Тип, не связанный с {@link Row} — используется, чтобы убедиться, что валидатор
+     * с разрешённым параметром типа НЕ подключается к чужим импортёрам. */
+    @ExcelSheet(name = "S2")
+    @TargetTable(name = "t2")
+    public static class OtherRow {
+        @ExcelColumn(header = "B")
+        @Column("b")
+        public String b;
+
+        public OtherRow() {}
+    }
+
+    /** Именованный класс с конкретным (не переиспользуемым) параметром типа — параметр
+     * типа сохраняется в рефлексии, в отличие от лямбды. */
+    static class NamedRowValidator implements BatchValidator<Row> {
+        @Override
+        public List<RowError> validate(List<RowRef<Row>> batch, Connection connection) {
+            return List.of();
+        }
+    }
+
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(
                     DataSourceAutoConfiguration.class, ExcelImportAutoConfiguration.class))
@@ -70,13 +91,52 @@ class ExcelImportAutoConfigurationTest {
     }
 
     @Test
+    void toImportConfigWithReportPathKeepsConfiguredPropertiesAndReportPath() {
+        runner.withPropertyValues("excel-import.batch-size=5000").run(context -> {
+            ExcelImportProperties properties = context.getBean(ExcelImportProperties.class);
+            java.nio.file.Path reportPath = java.nio.file.Path.of("/tmp/reports/employees-report.xlsx");
+
+            ImportConfig config = properties.toImportConfig(reportPath);
+
+            assertThat(config.batchSize()).isEqualTo(5000);
+            assertThat(config.reportPath()).isEqualTo(reportPath);
+        });
+    }
+
+    @Test
+    void toImportConfigWithNullReportPathBehavesLikeNoArgOverload() {
+        runner.withPropertyValues("excel-import.batch-size=5000").run(context -> {
+            ExcelImportProperties properties = context.getBean(ExcelImportProperties.class);
+
+            ImportConfig withNull = properties.toImportConfig(null);
+            ImportConfig noArg = properties.toImportConfig();
+
+            assertThat(withNull.batchSize()).isEqualTo(noArg.batchSize());
+            assertThat(withNull.reportPath()).isEqualTo(noArg.reportPath()).isNull();
+        });
+    }
+
+    @Test
     void defaultsMatchCoreDefaults() {
         runner.run(context -> {
             ImportConfig config = context.getBean(ExcelImportProperties.class).toImportConfig();
+            ImportConfig coreDefaults = ImportConfig.builder().build();
 
-            assertThat(config.batchSize()).isEqualTo(1000);
-            assertThat(config.reportPath()).isNull();
-            assertThat(config.conflictStrategy().toSql()).isEmpty();
+            assertThat(config.batchSize()).isEqualTo(coreDefaults.batchSize());
+            assertThat(config.reportPath()).isEqualTo(coreDefaults.reportPath());
+            assertThat(config.conflictStrategy().toSql()).isEqualTo(coreDefaults.conflictStrategy().toSql());
+            assertThat(config.maxErrors()).isEqualTo(coreDefaults.maxErrors());
+            assertThat(config.maxErrorsInMemory()).isEqualTo(coreDefaults.maxErrorsInMemory());
+            assertThat(config.maxSplitDepth()).isEqualTo(coreDefaults.maxSplitDepth());
+            assertThat(config.maxOutcomeMessagesInMemory()).isEqualTo(coreDefaults.maxOutcomeMessagesInMemory());
+            assertThat(config.skipBlankRows()).isEqualTo(coreDefaults.skipBlankRows());
+            assertThat(config.expandMergedCells()).isEqualTo(coreDefaults.expandMergedCells());
+            assertThat(config.includeDatabaseDetailInReport())
+                    .isEqualTo(coreDefaults.includeDatabaseDetailInReport());
+            assertThat(config.dryRun()).isEqualTo(coreDefaults.dryRun());
+            assertThat(config.queryTimeoutSeconds()).isEqualTo(coreDefaults.queryTimeoutSeconds());
+            assertThat(config.locale()).isEqualTo(coreDefaults.locale());
+            assertThat(config.tempDir()).isEqualTo(coreDefaults.tempDir());
         });
     }
 
@@ -99,6 +159,44 @@ class ExcelImportAutoConfigurationTest {
             ExcelImporterFactory factory = context.getBean(ExcelImporterFactory.class);
 
             assertThat(factory.batchValidatorsFor(Row.class)).hasSize(1);
+        });
+    }
+
+    @Configuration
+    static class WithLambdaValidator {
+        @Bean
+        BatchValidator<Row> validator() {
+            // Лямбда: реализует BatchValidator<Row>, но getGenericInterfaces() на её классе
+            // возвращает сырой BatchValidator без параметра — параметр типа стёрт.
+            return (batch, connection) -> List.of();
+        }
+    }
+
+    @Test
+    void lambdaValidatorIsNotAttachedToAnyImporter() {
+        runner.withUserConfiguration(WithLambdaValidator.class).run(context -> {
+            ExcelImporterFactory factory = context.getBean(ExcelImporterFactory.class);
+
+            assertThat(factory.batchValidatorsFor(Row.class)).isEmpty();
+            assertThat(factory.batchValidatorsFor(OtherRow.class)).isEmpty();
+        });
+    }
+
+    @Configuration
+    static class WithNamedValidator {
+        @Bean
+        BatchValidator<Row> validator() {
+            return new NamedRowValidator();
+        }
+    }
+
+    @Test
+    void namedClassValidatorIsAttachedOnlyToItsRowType() {
+        runner.withUserConfiguration(WithNamedValidator.class).run(context -> {
+            ExcelImporterFactory factory = context.getBean(ExcelImporterFactory.class);
+
+            assertThat(factory.batchValidatorsFor(Row.class)).hasSize(1);
+            assertThat(factory.batchValidatorsFor(OtherRow.class)).isEmpty();
         });
     }
 

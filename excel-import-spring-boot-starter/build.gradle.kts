@@ -8,9 +8,10 @@ dependencies {
     testImplementation(libs.h2)
 }
 
-tasks.withType<JavaCompile>().configureEach {
+tasks.named<JavaCompile>("compileJava") {
     // configuration-processor не «claim'ит» аннотации Spring, и javac категории processing
     // выдаёт «No processor claimed any of these annotations», что ломает -Werror.
-    // Это ожидаемое поведение процессора, поэтому глушится только эта категория lint'а.
+    // Это ожидаемое поведение процессора (запускается только для main-исходников), поэтому
+    // глушится только эта категория lint'а и только на compileJava.
     options.compilerArgs.add("-Xlint:-processing")
 }
