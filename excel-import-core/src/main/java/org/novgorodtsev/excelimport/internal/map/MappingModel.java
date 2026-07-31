@@ -95,7 +95,6 @@ public final class MappingModel<T> {
         return List.copyOf(all);
     }
 
-    @SuppressWarnings("unchecked")
     public T newInstance() {
         try {
             return (T) constructor.invoke();
