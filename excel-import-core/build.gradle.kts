@@ -1,9 +1,9 @@
-val integrationTest: SourceSet by sourceSets.creating {
+val integrationTest = sourceSets.create("integrationTest") {
     compileClasspath += sourceSets["main"].output + sourceSets["test"].output
     runtimeClasspath += output + compileClasspath
 }
 
-val performanceTest: SourceSet by sourceSets.creating {
+val performanceTest = sourceSets.create("performanceTest") {
     compileClasspath += sourceSets["main"].output + sourceSets["test"].output +
             sourceSets["integrationTest"].output
     runtimeClasspath += output + compileClasspath

@@ -40,7 +40,8 @@ multi-row `INSERT` батчами и генерирует Excel-отчёт с з
 
 ## Сборка и тесты
 
-Gradle 8.12 (Kotlin DSL), multi-project, wrapper закоммичен — используйте `./gradlew`.
+Gradle 9.6.1 (Kotlin DSL), multi-project, wrapper закоммичен — используйте `./gradlew`.
+Поддерживает запуск на JDK 17–26 (launcher); daemon и toolchain проекта — Java 17.
 
 ```bash
 ./gradlew build              # компиляция + unit-тесты + javadoc/sources jar
