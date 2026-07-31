@@ -4,7 +4,7 @@ plugins {
 }
 
 allprojects {
-    group = "io.github.excelimport"
+    group = "org.novgorodtsev.excelimport"
     version = "0.1.0-SNAPSHOT"
 }
 

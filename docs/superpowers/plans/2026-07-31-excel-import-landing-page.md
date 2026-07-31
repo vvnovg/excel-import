@@ -721,18 +721,18 @@ const { locale } = Astro.props;
 const t = content[locale].install;
 const v = content.version;
 const gradle = `// ${t.gradle}
-implementation("io.github.excelimport:excel-import-core:${v}")
+implementation("org.novgorodtsev.excelimport:excel-import-core:${v}")
 
 // Spring Boot starter (core pulled transitively)
-implementation("io.github.excelimport:excel-import-spring-boot-starter:${v}")`;
+implementation("org.novgorodtsev.excelimport:excel-import-spring-boot-starter:${v}")`;
 const maven = `<!-- ${t.maven} -->
 <dependency>
-  <groupId>io.github.excelimport</groupId>
+  <groupId>org.novgorodtsev.excelimport</groupId>
   <artifactId>excel-import-core</artifactId>
   <version>${v}</version>
 </dependency>
 <dependency>
-  <groupId>io.github.excelimport</groupId>
+  <groupId>org.novgorodtsev.excelimport</groupId>
   <artifactId>excel-import-spring-boot-starter</artifactId>
   <version>${v}</version>
 </dependency>`;

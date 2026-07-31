@@ -17,7 +17,7 @@
 - Потребление heap не зависит от числа строк файла. Ориентир, проверяемый тестом: 100 000 строк × 10 колонок проходят при `-Xmx256m`.
 - Ядро `excel-import-core` не зависит от Spring и не тянет драйвер PostgreSQL в рантайм (драйвер — `compileOnly` + `testImplementation`).
 - `api`-зависимости ядра: `poi`, `poi-ooxml`, Jakarta Validation API, SLF4J API. Hibernate Validator — `implementation`.
-- Публичный API — пакеты `io.github.excelimport` и вложенные, кроме `io.github.excelimport.internal.*`, который приватен и не покрывается гарантиями совместимости.
+- Публичный API — пакеты `org.novgorodtsev.excelimport` и вложенные, кроме `org.novgorodtsev.excelimport.internal.*`, который приватен и не покрывается гарантиями совместимости.
 - Нумерация: в конфигурации и аннотациях индексы 0-based (как в POI); во всём, что видит пользователь (`RowError.rowNum`, сообщения, отчёт) — 1-based (как в Excel). Конвертация ровно в одном месте, на границе публичного API.
 - Ни одно значение ячейки не логируется на уровне выше `TRACE` — данные могут быть персональными.
 - Ошибка уровня отдельной строки никогда не выбрасывается наружу, только попадает в `RowError`.
@@ -127,7 +127,7 @@ plugins {
 }
 
 allprojects {
-    group = "io.github.excelimport"
+    group = "org.novgorodtsev.excelimport"
     version = "0.1.0-SNAPSHOT"
 }
 
@@ -284,7 +284,7 @@ dependencies {
 `excel-import-core/src/test/java/io/github/excelimport/BuildSmokeTest.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -362,7 +362,7 @@ git commit -m "build: Gradle multi-project scaffold with core and Spring Boot st
 `excel-import-core/src/test/java/io/github/excelimport/SheetSelectorTest.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -411,7 +411,7 @@ class SheetSelectorTest {
 `excel-import-core/src/test/java/io/github/excelimport/RowErrorTest.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -458,7 +458,7 @@ class RowErrorTest {
 `excel-import-core/src/test/java/io/github/excelimport/TableRefTest.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -508,7 +508,7 @@ Expected: FAIL — `cannot find symbol: class SheetSelector` (и аналоги�
 - [ ] **Step 3: Реализовать `SheetSelector`**
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -580,7 +580,7 @@ public final class SheetSelector {
 `RowStatus.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 /** Исход обработки строки файла. Код используется для компактного хранения в byte[]. */
 public enum RowStatus {
@@ -614,7 +614,7 @@ public enum RowStatus {
 `RowOutcome.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import java.util.Objects;
 
@@ -655,7 +655,7 @@ public record RowOutcome(RowStatus status, String message) {
 `ErrorKind.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 /** Категория ошибки — определяет, на каком слое она возникла. */
 public enum ErrorKind {
@@ -676,7 +676,7 @@ public enum ErrorKind {
 `ImportStatus.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 /** Итоговый статус прогона. */
 public enum ImportStatus {
@@ -693,7 +693,7 @@ public enum ImportStatus {
 `RowRef.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import java.util.Objects;
 
@@ -717,7 +717,7 @@ public record RowRef<T>(int rowNum, T value) {
 - [ ] **Step 5: Реализовать `RowError`**
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import java.util.Objects;
 
@@ -777,7 +777,7 @@ public record RowError(
 - [ ] **Step 6: Реализовать `TableRef`**
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import java.util.Objects;
 
@@ -836,7 +836,7 @@ public record TableRef(String schema, String name) {
 `exception/ExcelImportException.java`:
 
 ```java
-package io.github.excelimport.exception;
+package org.novgorodtsev.excelimport.exception;
 
 /** Базовое непроверяемое исключение библиотеки. */
 public class ExcelImportException extends RuntimeException {
@@ -862,9 +862,9 @@ public class ExcelImportException extends RuntimeException {
 `exception/ImportAbortedException.java` — несёт частичный отчёт:
 
 ```java
-package io.github.excelimport.exception;
+package org.novgorodtsev.excelimport.exception;
 
-import io.github.excelimport.ImportReport;
+import org.novgorodtsev.excelimport.ImportReport;
 
 /** Импорт прерван: превышен лимит ошибок или произошёл фатальный сбой БД. */
 public class ImportAbortedException extends ExcelImportException {
@@ -893,7 +893,7 @@ public class ImportAbortedException extends ExcelImportException {
 `ImportAbortedException` ссылается на `ImportReport`, который создаётся в Task 16. Чтобы задача была самодостаточной, создать здесь же минимальный `ImportReport` ровно с теми полями, что перечислены в §4.3 спеки, без логики:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -964,7 +964,7 @@ git commit -m "feat: add core value types, error model and exception hierarchy"
 `excel-import-core/src/test/java/io/github/excelimport/testsupport/XlsxFixtures.java`:
 
 ```java
-package io.github.excelimport.testsupport;
+package org.novgorodtsev.excelimport.testsupport;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -1044,14 +1044,14 @@ public final class XlsxFixtures {
 `excel-import-core/src/test/java/io/github/excelimport/internal/read/PoiStreamingSheetReaderTest.java`:
 
 ```java
-package io.github.excelimport.internal.read;
+package org.novgorodtsev.excelimport.internal.read;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.github.excelimport.SheetSelector;
-import io.github.excelimport.exception.FileStructureException;
-import io.github.excelimport.testsupport.XlsxFixtures;
+import org.novgorodtsev.excelimport.SheetSelector;
+import org.novgorodtsev.excelimport.exception.FileStructureException;
+import org.novgorodtsev.excelimport.testsupport.XlsxFixtures;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -1256,7 +1256,7 @@ Expected: FAIL — `cannot find symbol: class StreamingSheetReader`.
 `convert/CellValue.java`:
 
 ```java
-package io.github.excelimport.convert;
+package org.novgorodtsev.excelimport.convert;
 
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.util.CellAddress;
@@ -1299,7 +1299,7 @@ public interface CellValue {
     }
 
     static CellValue blank(CellAddress address) {
-        return new io.github.excelimport.internal.read.ImmutableCellValue(
+        return new org.novgorodtsev.excelimport.internal.read.ImmutableCellValue(
                 address, CellType.BLANK, false, null, null, null, null, (byte) -1);
     }
 }
@@ -1308,9 +1308,9 @@ public interface CellValue {
 `internal/read/ImmutableCellValue.java`:
 
 ```java
-package io.github.excelimport.internal.read;
+package org.novgorodtsev.excelimport.internal.read;
 
-import io.github.excelimport.convert.CellValue;
+import org.novgorodtsev.excelimport.convert.CellValue;
 import java.util.Objects;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.util.CellAddress;
@@ -1359,9 +1359,9 @@ public record ImmutableCellValue(
 `internal/read/RawRow.java`:
 
 ```java
-package io.github.excelimport.internal.read;
+package org.novgorodtsev.excelimport.internal.read;
 
-import io.github.excelimport.convert.CellValue;
+import org.novgorodtsev.excelimport.convert.CellValue;
 import java.util.Map;
 import org.apache.poi.ss.util.CellAddress;
 
@@ -1409,7 +1409,7 @@ public final class RawRow {
 `internal/read/FormulaPolicy.java`:
 
 ```java
-package io.github.excelimport.internal.read;
+package org.novgorodtsev.excelimport.internal.read;
 
 /** Что делать с формулой, у которой в файле нет кэшированного результата. */
 public enum FormulaPolicy {
@@ -1426,7 +1426,7 @@ public enum FormulaPolicy {
 `internal/read/ReadOptions.java`:
 
 ```java
-package io.github.excelimport.internal.read;
+package org.novgorodtsev.excelimport.internal.read;
 
 import java.util.Objects;
 
@@ -1455,9 +1455,9 @@ public record ReadOptions(
 `internal/read/SheetSaxHandler.java`:
 
 ```java
-package io.github.excelimport.internal.read;
+package org.novgorodtsev.excelimport.internal.read;
 
-import io.github.excelimport.convert.CellValue;
+import org.novgorodtsev.excelimport.convert.CellValue;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -1732,9 +1732,9 @@ final class SheetSaxHandler extends DefaultHandler {
 `internal/read/StreamingSheetReader.java`:
 
 ```java
-package io.github.excelimport.internal.read;
+package org.novgorodtsev.excelimport.internal.read;
 
-import io.github.excelimport.SheetSelector;
+import org.novgorodtsev.excelimport.SheetSelector;
 import java.nio.file.Path;
 import java.util.function.Consumer;
 
@@ -1753,11 +1753,11 @@ public interface StreamingSheetReader {
 `internal/read/PoiStreamingSheetReader.java`:
 
 ```java
-package io.github.excelimport.internal.read;
+package org.novgorodtsev.excelimport.internal.read;
 
-import io.github.excelimport.SheetSelector;
-import io.github.excelimport.convert.CellValue;
-import io.github.excelimport.exception.FileStructureException;
+import org.novgorodtsev.excelimport.SheetSelector;
+import org.novgorodtsev.excelimport.convert.CellValue;
+import org.novgorodtsev.excelimport.exception.FileStructureException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -1941,12 +1941,12 @@ git commit -m "feat: add streaming XLSX sheet reader with SAX-based cell typing"
 `excel-import-core/src/test/java/io/github/excelimport/internal/read/SheetReaderEdgeCasesTest.java`:
 
 ```java
-package io.github.excelimport.internal.read;
+package org.novgorodtsev.excelimport.internal.read;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.excelimport.SheetSelector;
-import io.github.excelimport.testsupport.XlsxFixtures;
+import org.novgorodtsev.excelimport.SheetSelector;
+import org.novgorodtsev.excelimport.testsupport.XlsxFixtures;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -2250,17 +2250,17 @@ git commit -m "feat: handle dates, 1904 epoch, formulas, error cells and merged 
 - [ ] **Step 1: Написать падающий тест**
 
 ```java
-package io.github.excelimport.internal.map;
+package org.novgorodtsev.excelimport.internal.map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.github.excelimport.NamingStrategy;
-import io.github.excelimport.annotation.Column;
-import io.github.excelimport.annotation.ExcelColumn;
-import io.github.excelimport.annotation.ExcelSheet;
-import io.github.excelimport.annotation.TargetTable;
-import io.github.excelimport.exception.MappingConfigurationException;
+import org.novgorodtsev.excelimport.NamingStrategy;
+import org.novgorodtsev.excelimport.annotation.Column;
+import org.novgorodtsev.excelimport.annotation.ExcelColumn;
+import org.novgorodtsev.excelimport.annotation.ExcelSheet;
+import org.novgorodtsev.excelimport.annotation.TargetTable;
+import org.novgorodtsev.excelimport.exception.MappingConfigurationException;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 
@@ -2426,7 +2426,7 @@ Expected: FAIL — `cannot find symbol: class ExcelSheet`.
 `annotation/ExcelSheet.java`:
 
 ```java
-package io.github.excelimport.annotation;
+package org.novgorodtsev.excelimport.annotation;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -2457,9 +2457,9 @@ public @interface ExcelSheet {
 `annotation/ExcelColumn.java`:
 
 ```java
-package io.github.excelimport.annotation;
+package org.novgorodtsev.excelimport.annotation;
 
-import io.github.excelimport.convert.CellConverter;
+import org.novgorodtsev.excelimport.convert.CellConverter;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -2501,7 +2501,7 @@ public @interface ExcelColumn {
 `annotation/Column.java`:
 
 ```java
-package io.github.excelimport.annotation;
+package org.novgorodtsev.excelimport.annotation;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -2522,7 +2522,7 @@ public @interface Column {
 `annotation/TargetTable.java`:
 
 ```java
-package io.github.excelimport.annotation;
+package org.novgorodtsev.excelimport.annotation;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -2546,7 +2546,7 @@ public @interface TargetTable {
 - [ ] **Step 4: Реализовать `NamingStrategy`**
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 /** Как из имени поля получить имя колонки БД, если нет {@code @Column}. */
 public enum NamingStrategy {
@@ -2588,9 +2588,9 @@ public enum NamingStrategy {
 `internal/map/ColumnBinding.java`:
 
 ```java
-package io.github.excelimport.internal.map;
+package org.novgorodtsev.excelimport.internal.map;
 
-import io.github.excelimport.convert.CellConverter;
+import org.novgorodtsev.excelimport.convert.CellConverter;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Objects;
@@ -2643,11 +2643,11 @@ public record ColumnBinding(
 `internal/map/MappingModel.java`:
 
 ```java
-package io.github.excelimport.internal.map;
+package org.novgorodtsev.excelimport.internal.map;
 
-import io.github.excelimport.SheetSelector;
-import io.github.excelimport.TableRef;
-import io.github.excelimport.exception.MappingConfigurationException;
+import org.novgorodtsev.excelimport.SheetSelector;
+import org.novgorodtsev.excelimport.TableRef;
+import org.novgorodtsev.excelimport.exception.MappingConfigurationException;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
@@ -2755,17 +2755,17 @@ public final class MappingModel<T> {
 - [ ] **Step 6: Реализовать `MappingModelFactory`**
 
 ```java
-package io.github.excelimport.internal.map;
+package org.novgorodtsev.excelimport.internal.map;
 
-import io.github.excelimport.NamingStrategy;
-import io.github.excelimport.SheetSelector;
-import io.github.excelimport.TableRef;
-import io.github.excelimport.annotation.Column;
-import io.github.excelimport.annotation.ExcelColumn;
-import io.github.excelimport.annotation.ExcelSheet;
-import io.github.excelimport.annotation.TargetTable;
-import io.github.excelimport.convert.CellConverter;
-import io.github.excelimport.exception.MappingConfigurationException;
+import org.novgorodtsev.excelimport.NamingStrategy;
+import org.novgorodtsev.excelimport.SheetSelector;
+import org.novgorodtsev.excelimport.TableRef;
+import org.novgorodtsev.excelimport.annotation.Column;
+import org.novgorodtsev.excelimport.annotation.ExcelColumn;
+import org.novgorodtsev.excelimport.annotation.ExcelSheet;
+import org.novgorodtsev.excelimport.annotation.TargetTable;
+import org.novgorodtsev.excelimport.convert.CellConverter;
+import org.novgorodtsev.excelimport.exception.MappingConfigurationException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -2929,7 +2929,7 @@ public final class MappingModelFactory {
         } catch (IllegalAccessException e) {
             throw new MappingConfigurationException(
                     "модуль, содержащий " + type.getName()
-                            + ", должен открыть пакет для io.github.excelimport (opens ...)",
+                            + ", должен открыть пакет для org.novgorodtsev.excelimport (opens ...)",
                     e);
         }
     }
@@ -2990,17 +2990,17 @@ git commit -m "feat: add mapping annotations and annotation-driven MappingModel"
 `excel-import-core/src/test/java/io/github/excelimport/internal/convert/BuiltinConvertersTest.java`:
 
 ```java
-package io.github.excelimport.internal.convert;
+package org.novgorodtsev.excelimport.internal.convert;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.github.excelimport.convert.BooleanWords;
-import io.github.excelimport.convert.CellConverter;
-import io.github.excelimport.convert.CellValue;
-import io.github.excelimport.convert.ConversionContext;
-import io.github.excelimport.convert.ConversionException;
-import io.github.excelimport.internal.read.ImmutableCellValue;
+import org.novgorodtsev.excelimport.convert.BooleanWords;
+import org.novgorodtsev.excelimport.convert.CellConverter;
+import org.novgorodtsev.excelimport.convert.CellValue;
+import org.novgorodtsev.excelimport.convert.ConversionContext;
+import org.novgorodtsev.excelimport.convert.ConversionException;
+import org.novgorodtsev.excelimport.internal.read.ImmutableCellValue;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -3181,21 +3181,21 @@ class BuiltinConvertersTest {
 `excel-import-core/src/test/java/io/github/excelimport/internal/convert/ConverterRegistryTest.java`:
 
 ```java
-package io.github.excelimport.internal.convert;
+package org.novgorodtsev.excelimport.internal.convert;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.github.excelimport.NamingStrategy;
-import io.github.excelimport.annotation.ExcelColumn;
-import io.github.excelimport.annotation.ExcelSheet;
-import io.github.excelimport.convert.CellConverter;
-import io.github.excelimport.convert.CellValue;
-import io.github.excelimport.convert.ConversionContext;
-import io.github.excelimport.exception.MappingConfigurationException;
-import io.github.excelimport.internal.map.ColumnBinding;
-import io.github.excelimport.internal.map.MappingModel;
-import io.github.excelimport.internal.map.MappingModelFactory;
+import org.novgorodtsev.excelimport.NamingStrategy;
+import org.novgorodtsev.excelimport.annotation.ExcelColumn;
+import org.novgorodtsev.excelimport.annotation.ExcelSheet;
+import org.novgorodtsev.excelimport.convert.CellConverter;
+import org.novgorodtsev.excelimport.convert.CellValue;
+import org.novgorodtsev.excelimport.convert.ConversionContext;
+import org.novgorodtsev.excelimport.exception.MappingConfigurationException;
+import org.novgorodtsev.excelimport.internal.map.ColumnBinding;
+import org.novgorodtsev.excelimport.internal.map.MappingModel;
+import org.novgorodtsev.excelimport.internal.map.MappingModelFactory;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
@@ -3269,7 +3269,7 @@ Expected: FAIL — `cannot find symbol: class ConversionContext`.
 `convert/CellConverter.java`:
 
 ```java
-package io.github.excelimport.convert;
+package org.novgorodtsev.excelimport.convert;
 
 /**
  * Преобразует значение ячейки в значение поля. Реализации должны быть потокобезопасны
@@ -3290,9 +3290,9 @@ public interface CellConverter<V> {
 `convert/ConversionException.java`:
 
 ```java
-package io.github.excelimport.convert;
+package org.novgorodtsev.excelimport.convert;
 
-import io.github.excelimport.exception.ExcelImportException;
+import org.novgorodtsev.excelimport.exception.ExcelImportException;
 
 /**
  * Значение ячейки не приводится к типу поля. Перехватывается маппером и превращается
@@ -3324,7 +3324,7 @@ public class ConversionException extends ExcelImportException {
 `convert/BooleanWords.java`:
 
 ```java
-package io.github.excelimport.convert;
+package org.novgorodtsev.excelimport.convert;
 
 import java.util.Locale;
 import java.util.Set;
@@ -3367,7 +3367,7 @@ public record BooleanWords(Set<String> trueWords, Set<String> falseWords) {
 `convert/ConversionContext.java`:
 
 ```java
-package io.github.excelimport.convert;
+package org.novgorodtsev.excelimport.convert;
 
 import java.util.List;
 import java.util.Locale;
@@ -3426,12 +3426,12 @@ public record ConversionContext(
 - [ ] **Step 4: Реализовать `BuiltinConverters`**
 
 ```java
-package io.github.excelimport.internal.convert;
+package org.novgorodtsev.excelimport.internal.convert;
 
-import io.github.excelimport.convert.CellConverter;
-import io.github.excelimport.convert.CellValue;
-import io.github.excelimport.convert.ConversionContext;
-import io.github.excelimport.convert.ConversionException;
+import org.novgorodtsev.excelimport.convert.CellConverter;
+import org.novgorodtsev.excelimport.convert.CellValue;
+import org.novgorodtsev.excelimport.convert.ConversionContext;
+import org.novgorodtsev.excelimport.convert.ConversionException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -3699,11 +3699,11 @@ public final class BuiltinConverters {
 - [ ] **Step 5: Реализовать `ConverterRegistry`**
 
 ```java
-package io.github.excelimport.internal.convert;
+package org.novgorodtsev.excelimport.internal.convert;
 
-import io.github.excelimport.convert.CellConverter;
-import io.github.excelimport.exception.MappingConfigurationException;
-import io.github.excelimport.internal.map.ColumnBinding;
+import org.novgorodtsev.excelimport.convert.CellConverter;
+import org.novgorodtsev.excelimport.exception.MappingConfigurationException;
+import org.novgorodtsev.excelimport.internal.map.ColumnBinding;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -3827,18 +3827,18 @@ git commit -m "feat: add cell converters and converter registry"
 - [ ] **Step 1: Написать падающий тест**
 
 ```java
-package io.github.excelimport.internal.map;
+package org.novgorodtsev.excelimport.internal.map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.github.excelimport.HeaderMatchingPolicy;
-import io.github.excelimport.NamingStrategy;
-import io.github.excelimport.annotation.ExcelColumn;
-import io.github.excelimport.annotation.ExcelSheet;
-import io.github.excelimport.exception.FileStructureException;
-import io.github.excelimport.testsupport.RawRows;
-import io.github.excelimport.internal.read.RawRow;
+import org.novgorodtsev.excelimport.HeaderMatchingPolicy;
+import org.novgorodtsev.excelimport.NamingStrategy;
+import org.novgorodtsev.excelimport.annotation.ExcelColumn;
+import org.novgorodtsev.excelimport.annotation.ExcelSheet;
+import org.novgorodtsev.excelimport.exception.FileStructureException;
+import org.novgorodtsev.excelimport.testsupport.RawRows;
+import org.novgorodtsev.excelimport.internal.read.RawRow;
 import org.junit.jupiter.api.Test;
 
 class HeaderResolverTest {
@@ -3937,11 +3937,11 @@ class HeaderResolverTest {
 `excel-import-core/src/test/java/io/github/excelimport/testsupport/RawRows.java`:
 
 ```java
-package io.github.excelimport.testsupport;
+package org.novgorodtsev.excelimport.testsupport;
 
-import io.github.excelimport.convert.CellValue;
-import io.github.excelimport.internal.read.ImmutableCellValue;
-import io.github.excelimport.internal.read.RawRow;
+import org.novgorodtsev.excelimport.convert.CellValue;
+import org.novgorodtsev.excelimport.internal.read.ImmutableCellValue;
+import org.novgorodtsev.excelimport.internal.read.RawRow;
 import java.lang.reflect.Constructor;
 import java.util.HashMap;
 import java.util.Map;
@@ -3992,7 +3992,7 @@ Expected: FAIL — `cannot find symbol: class HeaderMatchingPolicy`.
 - [ ] **Step 4: Реализовать `HeaderMatchingPolicy`**
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 /**
  * Правила сопоставления текста в файле с {@code @ExcelColumn(header = ...)}.
@@ -4040,7 +4040,7 @@ public record HeaderMatchingPolicy(
 `internal/map/ResolvedColumns.java`:
 
 ```java
-package io.github.excelimport.internal.map;
+package org.novgorodtsev.excelimport.internal.map;
 
 import java.util.List;
 import java.util.Optional;
@@ -4066,11 +4066,11 @@ public record ResolvedColumns(List<Entry> entries) {
 `internal/map/HeaderResolver.java`:
 
 ```java
-package io.github.excelimport.internal.map;
+package org.novgorodtsev.excelimport.internal.map;
 
-import io.github.excelimport.HeaderMatchingPolicy;
-import io.github.excelimport.exception.FileStructureException;
-import io.github.excelimport.internal.read.RawRow;
+import org.novgorodtsev.excelimport.HeaderMatchingPolicy;
+import org.novgorodtsev.excelimport.exception.FileStructureException;
+import org.novgorodtsev.excelimport.internal.read.RawRow;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -4175,19 +4175,19 @@ git commit -m "feat: add header matching policy and resolver"
 - [ ] **Step 1: Написать падающий тест**
 
 ```java
-package io.github.excelimport.internal.map;
+package org.novgorodtsev.excelimport.internal.map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.excelimport.ErrorKind;
-import io.github.excelimport.HeaderMatchingPolicy;
-import io.github.excelimport.NamingStrategy;
-import io.github.excelimport.annotation.ExcelColumn;
-import io.github.excelimport.annotation.ExcelSheet;
-import io.github.excelimport.convert.BooleanWords;
-import io.github.excelimport.internal.convert.ConverterRegistry;
-import io.github.excelimport.internal.read.RawRow;
-import io.github.excelimport.testsupport.RawRows;
+import org.novgorodtsev.excelimport.ErrorKind;
+import org.novgorodtsev.excelimport.HeaderMatchingPolicy;
+import org.novgorodtsev.excelimport.NamingStrategy;
+import org.novgorodtsev.excelimport.annotation.ExcelColumn;
+import org.novgorodtsev.excelimport.annotation.ExcelSheet;
+import org.novgorodtsev.excelimport.convert.BooleanWords;
+import org.novgorodtsev.excelimport.internal.convert.ConverterRegistry;
+import org.novgorodtsev.excelimport.internal.read.RawRow;
+import org.novgorodtsev.excelimport.testsupport.RawRows;
 import java.math.BigDecimal;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
@@ -4288,9 +4288,9 @@ Expected: FAIL — `cannot find symbol: class RowMapper`.
 - [ ] **Step 3: Реализовать `MappingResult`**
 
 ```java
-package io.github.excelimport.internal.map;
+package org.novgorodtsev.excelimport.internal.map;
 
-import io.github.excelimport.RowError;
+import org.novgorodtsev.excelimport.RowError;
 import java.util.List;
 
 /**
@@ -4312,16 +4312,16 @@ public record MappingResult<T>(T value, List<RowError> errors) {
 - [ ] **Step 4: Реализовать `RowMapper`**
 
 ```java
-package io.github.excelimport.internal.map;
+package org.novgorodtsev.excelimport.internal.map;
 
-import io.github.excelimport.RowError;
-import io.github.excelimport.convert.BooleanWords;
-import io.github.excelimport.convert.CellConverter;
-import io.github.excelimport.convert.CellValue;
-import io.github.excelimport.convert.ConversionContext;
-import io.github.excelimport.convert.ConversionException;
-import io.github.excelimport.internal.convert.ConverterRegistry;
-import io.github.excelimport.internal.read.RawRow;
+import org.novgorodtsev.excelimport.RowError;
+import org.novgorodtsev.excelimport.convert.BooleanWords;
+import org.novgorodtsev.excelimport.convert.CellConverter;
+import org.novgorodtsev.excelimport.convert.CellValue;
+import org.novgorodtsev.excelimport.convert.ConversionContext;
+import org.novgorodtsev.excelimport.convert.ConversionException;
+import org.novgorodtsev.excelimport.internal.convert.ConverterRegistry;
+import org.novgorodtsev.excelimport.internal.read.RawRow;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -4427,16 +4427,16 @@ git commit -m "feat: add RowMapper collecting all conversion errors per row"
 - [ ] **Step 1: Написать падающий тест**
 
 ```java
-package io.github.excelimport.internal.validate;
+package org.novgorodtsev.excelimport.internal.validate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.excelimport.ErrorKind;
-import io.github.excelimport.NamingStrategy;
-import io.github.excelimport.annotation.ExcelColumn;
-import io.github.excelimport.annotation.ExcelSheet;
-import io.github.excelimport.internal.map.MappingModel;
-import io.github.excelimport.internal.map.MappingModelFactory;
+import org.novgorodtsev.excelimport.ErrorKind;
+import org.novgorodtsev.excelimport.NamingStrategy;
+import org.novgorodtsev.excelimport.annotation.ExcelColumn;
+import org.novgorodtsev.excelimport.annotation.ExcelSheet;
+import org.novgorodtsev.excelimport.internal.map.MappingModel;
+import org.novgorodtsev.excelimport.internal.map.MappingModelFactory;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
@@ -4522,7 +4522,7 @@ class BeanValidatorTest {
         bean.fullName = "";
         bean.years = 3;
 
-        List<io.github.excelimport.RowError> errors = validator.validate(bean, 7);
+        List<org.novgorodtsev.excelimport.RowError> errors = validator.validate(bean, 7);
 
         assertThat(errors).singleElement().satisfies(error -> {
             assertThat(error.kind()).isEqualTo(ErrorKind.CONSTRAINT);
@@ -4588,11 +4588,11 @@ Expected: FAIL — `cannot find symbol: class BeanValidator`.
 - [ ] **Step 3: Реализовать `BeanValidator`**
 
 ```java
-package io.github.excelimport.internal.validate;
+package org.novgorodtsev.excelimport.internal.validate;
 
-import io.github.excelimport.RowError;
-import io.github.excelimport.internal.map.ColumnBinding;
-import io.github.excelimport.internal.map.MappingModel;
+import org.novgorodtsev.excelimport.RowError;
+import org.novgorodtsev.excelimport.internal.map.ColumnBinding;
+import org.novgorodtsev.excelimport.internal.map.MappingModel;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -4757,7 +4757,7 @@ git commit -m "feat: integrate Jakarta Bean Validation with column-aware error m
 `ConflictStrategyTest.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -4811,7 +4811,7 @@ class ConflictStrategyTest {
 `ImportConfigTest.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -4904,7 +4904,7 @@ Expected: FAIL — `cannot find symbol: class ConflictStrategy`.
 - [ ] **Step 3: Реализовать `ConflictStrategy`**
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -4977,7 +4977,7 @@ public final class ConflictStrategy {
 `excel-import-core/src/main/java/io/github/excelimport/report/ReportStyle.java`:
 
 ```java
-package io.github.excelimport.report;
+package org.novgorodtsev.excelimport.report;
 
 /**
  * Оформление Excel-отчёта. Расширяется в задаче, реализующей ReportWriter;
@@ -4998,11 +4998,11 @@ public final class ReportStyle {
 - [ ] **Step 5: Реализовать `ImportConfig`**
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
-import io.github.excelimport.convert.BooleanWords;
-import io.github.excelimport.internal.read.FormulaPolicy;
-import io.github.excelimport.report.ReportStyle;
+import org.novgorodtsev.excelimport.convert.BooleanWords;
+import org.novgorodtsev.excelimport.internal.read.FormulaPolicy;
+import org.novgorodtsev.excelimport.report.ReportStyle;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Objects;
@@ -5160,8 +5160,8 @@ public final class ImportConfig {
     }
 
     /** Настройки чтения, выведенные из конфигурации. */
-    public io.github.excelimport.internal.read.ReadOptions readOptions() {
-        return new io.github.excelimport.internal.read.ReadOptions(
+    public org.novgorodtsev.excelimport.internal.read.ReadOptions readOptions() {
+        return new org.novgorodtsev.excelimport.internal.read.ReadOptions(
                 skipBlankRows, expandMergedCells, formulaPolicy);
     }
 
@@ -5377,12 +5377,12 @@ git commit -m "feat: add ImportConfig and ON CONFLICT strategies"
 `SqlBuilderTest.java`:
 
 ```java
-package io.github.excelimport.internal.write;
+package org.novgorodtsev.excelimport.internal.write;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.excelimport.ConflictStrategy;
-import io.github.excelimport.TableRef;
+import org.novgorodtsev.excelimport.ConflictStrategy;
+import org.novgorodtsev.excelimport.TableRef;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -5459,7 +5459,7 @@ class SqlBuilderTest {
 `RowBinderTest.java`:
 
 ```java
-package io.github.excelimport.internal.write;
+package org.novgorodtsev.excelimport.internal.write;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -5467,11 +5467,11 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import io.github.excelimport.NamingStrategy;
-import io.github.excelimport.annotation.ExcelColumn;
-import io.github.excelimport.annotation.ExcelSheet;
-import io.github.excelimport.internal.map.MappingModel;
-import io.github.excelimport.internal.map.MappingModelFactory;
+import org.novgorodtsev.excelimport.NamingStrategy;
+import org.novgorodtsev.excelimport.annotation.ExcelColumn;
+import org.novgorodtsev.excelimport.annotation.ExcelSheet;
+import org.novgorodtsev.excelimport.internal.map.MappingModel;
+import org.novgorodtsev.excelimport.internal.map.MappingModelFactory;
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -5553,10 +5553,10 @@ Expected: FAIL — `cannot find symbol: class SqlBuilder`.
 - [ ] **Step 3: Реализовать `SqlBuilder`**
 
 ```java
-package io.github.excelimport.internal.write;
+package org.novgorodtsev.excelimport.internal.write;
 
-import io.github.excelimport.ConflictStrategy;
-import io.github.excelimport.TableRef;
+import org.novgorodtsev.excelimport.ConflictStrategy;
+import org.novgorodtsev.excelimport.TableRef;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -5631,10 +5631,10 @@ public final class SqlBuilder {
 - [ ] **Step 4: Реализовать `RowBinder`**
 
 ```java
-package io.github.excelimport.internal.write;
+package org.novgorodtsev.excelimport.internal.write;
 
-import io.github.excelimport.exception.ExcelImportException;
-import io.github.excelimport.internal.map.ColumnBinding;
+import org.novgorodtsev.excelimport.exception.ExcelImportException;
+import org.novgorodtsev.excelimport.internal.map.ColumnBinding;
 import java.lang.invoke.MethodHandle;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -5692,9 +5692,9 @@ public final class RowBinder<T> {
 - [ ] **Step 5: Реализовать `InsertExecutor`**
 
 ```java
-package io.github.excelimport.internal.write;
+package org.novgorodtsev.excelimport.internal.write;
 
-import io.github.excelimport.RowRef;
+import org.novgorodtsev.excelimport.RowRef;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -5775,11 +5775,11 @@ git commit -m "feat: add multi-row INSERT SQL builder, parameter binder and exec
 `DefaultSqlErrorClassifierTest.java`:
 
 ```java
-package io.github.excelimport.internal.write;
+package org.novgorodtsev.excelimport.internal.write;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.excelimport.SqlErrorClassifier;
+import org.novgorodtsev.excelimport.SqlErrorClassifier;
 import java.sql.SQLException;
 import org.junit.jupiter.api.Test;
 
@@ -5851,12 +5851,12 @@ class DefaultSqlErrorClassifierTest {
 `BatchSplitterTest.java`:
 
 ```java
-package io.github.excelimport.internal.write;
+package org.novgorodtsev.excelimport.internal.write;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.excelimport.ErrorKind;
-import io.github.excelimport.RowRef;
+import org.novgorodtsev.excelimport.ErrorKind;
+import org.novgorodtsev.excelimport.RowRef;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -6001,7 +6001,7 @@ Expected: FAIL — `cannot find symbol: class SqlErrorClassifier`.
 `SqlErrorClassifier.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import java.sql.SQLException;
 
@@ -6021,9 +6021,9 @@ public interface SqlErrorClassifier {
 `internal/write/DefaultSqlErrorClassifier.java`:
 
 ```java
-package io.github.excelimport.internal.write;
+package org.novgorodtsev.excelimport.internal.write;
 
-import io.github.excelimport.SqlErrorClassifier;
+import org.novgorodtsev.excelimport.SqlErrorClassifier;
 import java.sql.SQLException;
 import java.util.Set;
 
@@ -6097,7 +6097,7 @@ public final class DefaultSqlErrorClassifier implements SqlErrorClassifier {
 - [ ] **Step 4: Реализовать `DatabaseErrorMessages`**
 
 ```java
-package io.github.excelimport.internal.write;
+package org.novgorodtsev.excelimport.internal.write;
 
 import java.sql.SQLException;
 
@@ -6174,11 +6174,11 @@ public final class DatabaseErrorMessages {
 - [ ] **Step 5: Реализовать `BatchSplitter`**
 
 ```java
-package io.github.excelimport.internal.write;
+package org.novgorodtsev.excelimport.internal.write;
 
-import io.github.excelimport.RowError;
-import io.github.excelimport.RowRef;
-import io.github.excelimport.SqlErrorClassifier;
+import org.novgorodtsev.excelimport.RowError;
+import org.novgorodtsev.excelimport.RowRef;
+import org.novgorodtsev.excelimport.SqlErrorClassifier;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -6321,7 +6321,7 @@ git commit -m "feat: add SQL error classification and recursive batch bisection"
 - [ ] **Step 1: Написать падающий unit-тест защиты соединения**
 
 ```java
-package io.github.excelimport.internal.write;
+package org.novgorodtsev.excelimport.internal.write;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -6392,10 +6392,10 @@ Expected: FAIL — `cannot find symbol: class GuardedConnection`.
 `validate/BatchValidator.java`:
 
 ```java
-package io.github.excelimport.validate;
+package org.novgorodtsev.excelimport.validate;
 
-import io.github.excelimport.RowError;
-import io.github.excelimport.RowRef;
+import org.novgorodtsev.excelimport.RowError;
+import org.novgorodtsev.excelimport.RowRef;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
@@ -6428,7 +6428,7 @@ public interface BatchValidator<T> {
 `internal/write/GuardedConnection.java`:
 
 ```java
-package io.github.excelimport.internal.write;
+package org.novgorodtsev.excelimport.internal.write;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
@@ -6478,11 +6478,11 @@ public final class GuardedConnection {
 - [ ] **Step 4: Реализовать `BatchProcessor`**
 
 ```java
-package io.github.excelimport.internal.write;
+package org.novgorodtsev.excelimport.internal.write;
 
-import io.github.excelimport.RowError;
-import io.github.excelimport.RowRef;
-import io.github.excelimport.validate.BatchValidator;
+import org.novgorodtsev.excelimport.RowError;
+import org.novgorodtsev.excelimport.RowRef;
+import org.novgorodtsev.excelimport.validate.BatchValidator;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -6643,7 +6643,7 @@ public final class BatchProcessor<T> {
 `excel-import-core/src/integrationTest/java/io/github/excelimport/testsupport/PostgresSupport.java`:
 
 ```java
-package io.github.excelimport.testsupport;
+package org.novgorodtsev.excelimport.testsupport;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -6700,24 +6700,24 @@ public final class PostgresSupport {
 `excel-import-core/src/integrationTest/java/io/github/excelimport/internal/write/BatchProcessorIT.java`:
 
 ```java
-package io.github.excelimport.internal.write;
+package org.novgorodtsev.excelimport.internal.write;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.github.excelimport.ConflictStrategy;
-import io.github.excelimport.NamingStrategy;
-import io.github.excelimport.RowError;
-import io.github.excelimport.RowRef;
-import io.github.excelimport.TableRef;
-import io.github.excelimport.annotation.Column;
-import io.github.excelimport.annotation.ExcelColumn;
-import io.github.excelimport.annotation.ExcelSheet;
-import io.github.excelimport.annotation.TargetTable;
-import io.github.excelimport.internal.map.MappingModel;
-import io.github.excelimport.internal.map.MappingModelFactory;
-import io.github.excelimport.testsupport.PostgresSupport;
-import io.github.excelimport.validate.BatchValidator;
+import org.novgorodtsev.excelimport.ConflictStrategy;
+import org.novgorodtsev.excelimport.NamingStrategy;
+import org.novgorodtsev.excelimport.RowError;
+import org.novgorodtsev.excelimport.RowRef;
+import org.novgorodtsev.excelimport.TableRef;
+import org.novgorodtsev.excelimport.annotation.Column;
+import org.novgorodtsev.excelimport.annotation.ExcelColumn;
+import org.novgorodtsev.excelimport.annotation.ExcelSheet;
+import org.novgorodtsev.excelimport.annotation.TargetTable;
+import org.novgorodtsev.excelimport.internal.map.MappingModel;
+import org.novgorodtsev.excelimport.internal.map.MappingModelFactory;
+import org.novgorodtsev.excelimport.testsupport.PostgresSupport;
+import org.novgorodtsev.excelimport.validate.BatchValidator;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -6962,14 +6962,14 @@ git commit -m "feat: add BatchValidator SPI, connection guard and transactional 
 - [ ] **Step 1: Написать падающий тест**
 
 ```java
-package io.github.excelimport.internal.outcome;
+package org.novgorodtsev.excelimport.internal.outcome;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.github.excelimport.RowOutcome;
-import io.github.excelimport.RowStatus;
-import io.github.excelimport.outcome.RowOutcomeStore;
+import org.novgorodtsev.excelimport.RowOutcome;
+import org.novgorodtsev.excelimport.RowStatus;
+import org.novgorodtsev.excelimport.outcome.RowOutcomeStore;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -7145,9 +7145,9 @@ Expected: FAIL — `cannot find symbol: class RowOutcomeStore`.
 - [ ] **Step 3: Реализовать интерфейс `RowOutcomeStore`**
 
 ```java
-package io.github.excelimport.outcome;
+package org.novgorodtsev.excelimport.outcome;
 
-import io.github.excelimport.RowOutcome;
+import org.novgorodtsev.excelimport.RowOutcome;
 
 /**
  * Хранилище исходов строк между двумя проходами импорта. Реализация по умолчанию
@@ -7181,11 +7181,11 @@ public interface RowOutcomeStore extends AutoCloseable {
 - [ ] **Step 4: Реализовать `SpillableRowOutcomeStore`**
 
 ```java
-package io.github.excelimport.internal.outcome;
+package org.novgorodtsev.excelimport.internal.outcome;
 
-import io.github.excelimport.RowOutcome;
-import io.github.excelimport.RowStatus;
-import io.github.excelimport.outcome.RowOutcomeStore;
+import org.novgorodtsev.excelimport.RowOutcome;
+import org.novgorodtsev.excelimport.RowStatus;
+import org.novgorodtsev.excelimport.outcome.RowOutcomeStore;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -7474,24 +7474,24 @@ git commit -m "feat: add row outcome store with disk spilling for error messages
 - [ ] **Step 1: Написать падающий тест**
 
 ```java
-package io.github.excelimport.internal.report;
+package org.novgorodtsev.excelimport.internal.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.github.excelimport.ImportReport;
-import io.github.excelimport.ImportStatus;
-import io.github.excelimport.RowOutcome;
-import io.github.excelimport.RowStatus;
-import io.github.excelimport.SheetSelector;
-import io.github.excelimport.exception.ReportGenerationException;
-import io.github.excelimport.internal.outcome.SpillableRowOutcomeStore;
-import io.github.excelimport.internal.read.PoiStreamingSheetReader;
-import io.github.excelimport.internal.read.ReadOptions;
-import io.github.excelimport.outcome.RowOutcomeStore;
-import io.github.excelimport.report.ReportRowCustomizer;
-import io.github.excelimport.report.ReportStyle;
-import io.github.excelimport.testsupport.XlsxFixtures;
+import org.novgorodtsev.excelimport.ImportReport;
+import org.novgorodtsev.excelimport.ImportStatus;
+import org.novgorodtsev.excelimport.RowOutcome;
+import org.novgorodtsev.excelimport.RowStatus;
+import org.novgorodtsev.excelimport.SheetSelector;
+import org.novgorodtsev.excelimport.exception.ReportGenerationException;
+import org.novgorodtsev.excelimport.internal.outcome.SpillableRowOutcomeStore;
+import org.novgorodtsev.excelimport.internal.read.PoiStreamingSheetReader;
+import org.novgorodtsev.excelimport.internal.read.ReadOptions;
+import org.novgorodtsev.excelimport.outcome.RowOutcomeStore;
+import org.novgorodtsev.excelimport.report.ReportRowCustomizer;
+import org.novgorodtsev.excelimport.report.ReportStyle;
+import org.novgorodtsev.excelimport.testsupport.XlsxFixtures;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -7658,7 +7658,7 @@ class ReportWriterTest {
             @Override
             public void customizeHeader(
                     org.apache.poi.xssf.streaming.SXSSFRow header,
-                    io.github.excelimport.report.ReportContext ctx) {
+                    org.novgorodtsev.excelimport.report.ReportContext ctx) {
                 header.createCell(4).setCellValue("Доп");
             }
 
@@ -7666,7 +7666,7 @@ class ReportWriterTest {
             public void customizeRow(
                     org.apache.poi.xssf.streaming.SXSSFRow row,
                     RowOutcome outcome,
-                    io.github.excelimport.report.ReportContext ctx) {
+                    org.novgorodtsev.excelimport.report.ReportContext ctx) {
                 row.createCell(4).setCellValue(outcome.status().name());
             }
         };
@@ -7750,7 +7750,7 @@ Expected: FAIL — `cannot find symbol: class ReportContext`, `method builder()`
 - [ ] **Step 3: Заменить заглушку `ReportStyle` полной реализацией**
 
 ```java
-package io.github.excelimport.report;
+package org.novgorodtsev.excelimport.report;
 
 import java.util.Objects;
 import org.apache.poi.ss.usermodel.FillPatternType;
@@ -7974,9 +7974,9 @@ public final class ReportStyle {
 `report/ReportContext.java`:
 
 ```java
-package io.github.excelimport.report;
+package org.novgorodtsev.excelimport.report;
 
-import io.github.excelimport.RowStatus;
+import org.novgorodtsev.excelimport.RowStatus;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataFormat;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
@@ -8009,10 +8009,10 @@ public interface ReportContext {
 `report/ReportRowCustomizer.java`:
 
 ```java
-package io.github.excelimport.report;
+package org.novgorodtsev.excelimport.report;
 
-import io.github.excelimport.ImportReport;
-import io.github.excelimport.RowOutcome;
+import org.novgorodtsev.excelimport.ImportReport;
+import org.novgorodtsev.excelimport.RowOutcome;
 import org.apache.poi.xssf.streaming.SXSSFRow;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
@@ -8040,10 +8040,10 @@ public interface ReportRowCustomizer {
 `internal/report/ReportStyleCache.java`:
 
 ```java
-package io.github.excelimport.internal.report;
+package org.novgorodtsev.excelimport.internal.report;
 
-import io.github.excelimport.RowStatus;
-import io.github.excelimport.report.ReportStyle;
+import org.novgorodtsev.excelimport.RowStatus;
+import org.novgorodtsev.excelimport.report.ReportStyle;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -8108,21 +8108,21 @@ final class ReportStyleCache {
 - [ ] **Step 5: Реализовать `ReportWriter`**
 
 ```java
-package io.github.excelimport.internal.report;
+package org.novgorodtsev.excelimport.internal.report;
 
-import io.github.excelimport.ImportReport;
-import io.github.excelimport.RowOutcome;
-import io.github.excelimport.RowStatus;
-import io.github.excelimport.SheetSelector;
-import io.github.excelimport.convert.CellValue;
-import io.github.excelimport.exception.ReportGenerationException;
-import io.github.excelimport.internal.read.RawRow;
-import io.github.excelimport.internal.read.ReadOptions;
-import io.github.excelimport.internal.read.StreamingSheetReader;
-import io.github.excelimport.outcome.RowOutcomeStore;
-import io.github.excelimport.report.ReportContext;
-import io.github.excelimport.report.ReportRowCustomizer;
-import io.github.excelimport.report.ReportStyle;
+import org.novgorodtsev.excelimport.ImportReport;
+import org.novgorodtsev.excelimport.RowOutcome;
+import org.novgorodtsev.excelimport.RowStatus;
+import org.novgorodtsev.excelimport.SheetSelector;
+import org.novgorodtsev.excelimport.convert.CellValue;
+import org.novgorodtsev.excelimport.exception.ReportGenerationException;
+import org.novgorodtsev.excelimport.internal.read.RawRow;
+import org.novgorodtsev.excelimport.internal.read.ReadOptions;
+import org.novgorodtsev.excelimport.internal.read.StreamingSheetReader;
+import org.novgorodtsev.excelimport.outcome.RowOutcomeStore;
+import org.novgorodtsev.excelimport.report.ReportContext;
+import org.novgorodtsev.excelimport.report.ReportRowCustomizer;
+import org.novgorodtsev.excelimport.report.ReportStyle;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -8458,17 +8458,17 @@ git commit -m "feat: add marked Excel report writer with style cache and customi
 - [ ] **Step 1: Написать падающий unit-тест сборки импортёра**
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
-import io.github.excelimport.annotation.Column;
-import io.github.excelimport.annotation.ExcelColumn;
-import io.github.excelimport.annotation.ExcelSheet;
-import io.github.excelimport.annotation.TargetTable;
-import io.github.excelimport.exception.MappingConfigurationException;
+import org.novgorodtsev.excelimport.annotation.Column;
+import org.novgorodtsev.excelimport.annotation.ExcelColumn;
+import org.novgorodtsev.excelimport.annotation.ExcelSheet;
+import org.novgorodtsev.excelimport.annotation.TargetTable;
+import org.novgorodtsev.excelimport.exception.MappingConfigurationException;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 
@@ -8560,7 +8560,7 @@ Expected: FAIL — `cannot find symbol: class ExcelImporter`.
 `ImportRunInfo.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -8581,7 +8581,7 @@ public record ImportRunInfo(
 `ImportListener.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 /**
  * Наблюдение за прогоном: прогресс-бар, метрики, чекпоинты в своей таблице.
@@ -8610,34 +8610,34 @@ public interface ImportListener {
 - [ ] **Step 4: Реализовать `ImportRun`**
 
 ```java
-package io.github.excelimport.internal;
+package org.novgorodtsev.excelimport.internal;
 
-import io.github.excelimport.ErrorKind;
-import io.github.excelimport.HeaderMatchingPolicy;
-import io.github.excelimport.ImportConfig;
-import io.github.excelimport.ImportListener;
-import io.github.excelimport.ImportReport;
-import io.github.excelimport.ImportRunInfo;
-import io.github.excelimport.ImportStatus;
-import io.github.excelimport.RowError;
-import io.github.excelimport.RowOutcome;
-import io.github.excelimport.RowRef;
-import io.github.excelimport.SheetSelector;
-import io.github.excelimport.TableRef;
-import io.github.excelimport.exception.ImportAbortedException;
-import io.github.excelimport.exception.ReportGenerationException;
-import io.github.excelimport.internal.map.HeaderResolver;
-import io.github.excelimport.internal.map.MappingModel;
-import io.github.excelimport.internal.map.MappingResult;
-import io.github.excelimport.internal.map.ResolvedColumns;
-import io.github.excelimport.internal.map.RowMapper;
-import io.github.excelimport.internal.read.RawRow;
-import io.github.excelimport.internal.read.ReadOptions;
-import io.github.excelimport.internal.read.StreamingSheetReader;
-import io.github.excelimport.internal.report.ReportWriter;
-import io.github.excelimport.internal.write.BatchProcessor;
-import io.github.excelimport.internal.validate.BeanValidator;
-import io.github.excelimport.outcome.RowOutcomeStore;
+import org.novgorodtsev.excelimport.ErrorKind;
+import org.novgorodtsev.excelimport.HeaderMatchingPolicy;
+import org.novgorodtsev.excelimport.ImportConfig;
+import org.novgorodtsev.excelimport.ImportListener;
+import org.novgorodtsev.excelimport.ImportReport;
+import org.novgorodtsev.excelimport.ImportRunInfo;
+import org.novgorodtsev.excelimport.ImportStatus;
+import org.novgorodtsev.excelimport.RowError;
+import org.novgorodtsev.excelimport.RowOutcome;
+import org.novgorodtsev.excelimport.RowRef;
+import org.novgorodtsev.excelimport.SheetSelector;
+import org.novgorodtsev.excelimport.TableRef;
+import org.novgorodtsev.excelimport.exception.ImportAbortedException;
+import org.novgorodtsev.excelimport.exception.ReportGenerationException;
+import org.novgorodtsev.excelimport.internal.map.HeaderResolver;
+import org.novgorodtsev.excelimport.internal.map.MappingModel;
+import org.novgorodtsev.excelimport.internal.map.MappingResult;
+import org.novgorodtsev.excelimport.internal.map.ResolvedColumns;
+import org.novgorodtsev.excelimport.internal.map.RowMapper;
+import org.novgorodtsev.excelimport.internal.read.RawRow;
+import org.novgorodtsev.excelimport.internal.read.ReadOptions;
+import org.novgorodtsev.excelimport.internal.read.StreamingSheetReader;
+import org.novgorodtsev.excelimport.internal.report.ReportWriter;
+import org.novgorodtsev.excelimport.internal.write.BatchProcessor;
+import org.novgorodtsev.excelimport.internal.validate.BeanValidator;
+import org.novgorodtsev.excelimport.outcome.RowOutcomeStore;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.Duration;
@@ -8777,7 +8777,7 @@ public final class ImportRun<T> {
         }
         if (mapper == null) {
             // строка заголовка отсутствует в файле вовсе
-            throw new io.github.excelimport.exception.FileStructureException(
+            throw new org.novgorodtsev.excelimport.exception.FileStructureException(
                     "в файле нет строки заголовка с индексом " + model.headerRowIndex());
         }
 
@@ -8931,30 +8931,30 @@ public final class ImportRun<T> {
 - [ ] **Step 5: Реализовать `ExcelImporter`**
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
-import io.github.excelimport.convert.CellConverter;
-import io.github.excelimport.exception.ExcelImportException;
-import io.github.excelimport.exception.MappingConfigurationException;
-import io.github.excelimport.internal.ImportRun;
-import io.github.excelimport.internal.convert.ConverterRegistry;
-import io.github.excelimport.internal.map.MappingModel;
-import io.github.excelimport.internal.map.MappingModelFactory;
-import io.github.excelimport.internal.map.RowMapper;
-import io.github.excelimport.internal.outcome.SpillableRowOutcomeStore;
-import io.github.excelimport.internal.read.PoiStreamingSheetReader;
-import io.github.excelimport.internal.read.StreamingSheetReader;
-import io.github.excelimport.internal.report.ReportWriter;
-import io.github.excelimport.internal.validate.BeanValidator;
-import io.github.excelimport.internal.write.BatchProcessor;
-import io.github.excelimport.internal.write.BatchSplitter;
-import io.github.excelimport.internal.write.DefaultSqlErrorClassifier;
-import io.github.excelimport.internal.write.InsertExecutor;
-import io.github.excelimport.internal.write.RowBinder;
-import io.github.excelimport.internal.write.SqlBuilder;
-import io.github.excelimport.outcome.RowOutcomeStore;
-import io.github.excelimport.report.ReportRowCustomizer;
-import io.github.excelimport.validate.BatchValidator;
+import org.novgorodtsev.excelimport.convert.CellConverter;
+import org.novgorodtsev.excelimport.exception.ExcelImportException;
+import org.novgorodtsev.excelimport.exception.MappingConfigurationException;
+import org.novgorodtsev.excelimport.internal.ImportRun;
+import org.novgorodtsev.excelimport.internal.convert.ConverterRegistry;
+import org.novgorodtsev.excelimport.internal.map.MappingModel;
+import org.novgorodtsev.excelimport.internal.map.MappingModelFactory;
+import org.novgorodtsev.excelimport.internal.map.RowMapper;
+import org.novgorodtsev.excelimport.internal.outcome.SpillableRowOutcomeStore;
+import org.novgorodtsev.excelimport.internal.read.PoiStreamingSheetReader;
+import org.novgorodtsev.excelimport.internal.read.StreamingSheetReader;
+import org.novgorodtsev.excelimport.internal.report.ReportWriter;
+import org.novgorodtsev.excelimport.internal.validate.BeanValidator;
+import org.novgorodtsev.excelimport.internal.write.BatchProcessor;
+import org.novgorodtsev.excelimport.internal.write.BatchSplitter;
+import org.novgorodtsev.excelimport.internal.write.DefaultSqlErrorClassifier;
+import org.novgorodtsev.excelimport.internal.write.InsertExecutor;
+import org.novgorodtsev.excelimport.internal.write.RowBinder;
+import org.novgorodtsev.excelimport.internal.write.SqlBuilder;
+import org.novgorodtsev.excelimport.outcome.RowOutcomeStore;
+import org.novgorodtsev.excelimport.report.ReportRowCustomizer;
+import org.novgorodtsev.excelimport.validate.BatchValidator;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -9179,19 +9179,19 @@ Expected: PASS — 6 тестов.
 `excel-import-core/src/integrationTest/java/io/github/excelimport/ExcelImporterIT.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.github.excelimport.annotation.Column;
-import io.github.excelimport.annotation.ExcelColumn;
-import io.github.excelimport.annotation.ExcelSheet;
-import io.github.excelimport.annotation.TargetTable;
-import io.github.excelimport.exception.FileStructureException;
-import io.github.excelimport.exception.ImportAbortedException;
-import io.github.excelimport.testsupport.PostgresSupport;
-import io.github.excelimport.testsupport.XlsxFixtures;
+import org.novgorodtsev.excelimport.annotation.Column;
+import org.novgorodtsev.excelimport.annotation.ExcelColumn;
+import org.novgorodtsev.excelimport.annotation.ExcelSheet;
+import org.novgorodtsev.excelimport.annotation.TargetTable;
+import org.novgorodtsev.excelimport.exception.FileStructureException;
+import org.novgorodtsev.excelimport.exception.ImportAbortedException;
+import org.novgorodtsev.excelimport.testsupport.PostgresSupport;
+import org.novgorodtsev.excelimport.testsupport.XlsxFixtures;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -9541,18 +9541,18 @@ val performanceTest: SourceSet by sourceSets.creating {
 `excel-import-core/src/integrationTest/java/io/github/excelimport/ImportEdgeCasesIT.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.github.excelimport.annotation.Column;
-import io.github.excelimport.annotation.ExcelColumn;
-import io.github.excelimport.annotation.ExcelSheet;
-import io.github.excelimport.annotation.TargetTable;
-import io.github.excelimport.exception.ImportAbortedException;
-import io.github.excelimport.testsupport.PostgresSupport;
-import io.github.excelimport.testsupport.XlsxFixtures;
+import org.novgorodtsev.excelimport.annotation.Column;
+import org.novgorodtsev.excelimport.annotation.ExcelColumn;
+import org.novgorodtsev.excelimport.annotation.ExcelSheet;
+import org.novgorodtsev.excelimport.annotation.TargetTable;
+import org.novgorodtsev.excelimport.exception.ImportAbortedException;
+import org.novgorodtsev.excelimport.testsupport.PostgresSupport;
+import org.novgorodtsev.excelimport.testsupport.XlsxFixtures;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
@@ -9832,7 +9832,7 @@ class ImportEdgeCasesIT {
 `excel-import-core/src/integrationTest/java/io/github/excelimport/FailingDataSource.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
@@ -9878,7 +9878,7 @@ Expected: PASS — 8 тестов.
 `excel-import-core/src/performanceTest/java/io/github/excelimport/testsupport/LargeFixture.java`:
 
 ```java
-package io.github.excelimport.testsupport;
+package org.novgorodtsev.excelimport.testsupport;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -9934,16 +9934,16 @@ public final class LargeFixture {
 `excel-import-core/src/performanceTest/java/io/github/excelimport/LargeFileMemoryTest.java`:
 
 ```java
-package io.github.excelimport;
+package org.novgorodtsev.excelimport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.excelimport.annotation.Column;
-import io.github.excelimport.annotation.ExcelColumn;
-import io.github.excelimport.annotation.ExcelSheet;
-import io.github.excelimport.annotation.TargetTable;
-import io.github.excelimport.testsupport.LargeFixture;
-import io.github.excelimport.testsupport.PostgresSupport;
+import org.novgorodtsev.excelimport.annotation.Column;
+import org.novgorodtsev.excelimport.annotation.ExcelColumn;
+import org.novgorodtsev.excelimport.annotation.ExcelSheet;
+import org.novgorodtsev.excelimport.annotation.TargetTable;
+import org.novgorodtsev.excelimport.testsupport.LargeFixture;
+import org.novgorodtsev.excelimport.testsupport.PostgresSupport;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -10055,18 +10055,18 @@ git commit -m "test: add edge-case integration coverage and large-file memory te
 - [ ] **Step 1: Написать падающий тест автоконфигурации**
 
 ```java
-package io.github.excelimport.spring;
+package org.novgorodtsev.excelimport.spring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.excelimport.ImportConfig;
-import io.github.excelimport.RowError;
-import io.github.excelimport.RowRef;
-import io.github.excelimport.annotation.Column;
-import io.github.excelimport.annotation.ExcelColumn;
-import io.github.excelimport.annotation.ExcelSheet;
-import io.github.excelimport.annotation.TargetTable;
-import io.github.excelimport.validate.BatchValidator;
+import org.novgorodtsev.excelimport.ImportConfig;
+import org.novgorodtsev.excelimport.RowError;
+import org.novgorodtsev.excelimport.RowRef;
+import org.novgorodtsev.excelimport.annotation.Column;
+import org.novgorodtsev.excelimport.annotation.ExcelColumn;
+import org.novgorodtsev.excelimport.annotation.ExcelSheet;
+import org.novgorodtsev.excelimport.annotation.TargetTable;
+import org.novgorodtsev.excelimport.validate.BatchValidator;
 import java.sql.Connection;
 import java.util.List;
 import javax.sql.DataSource;
@@ -10213,10 +10213,10 @@ Expected: FAIL — `cannot find symbol: class ExcelImportAutoConfiguration`.
 - [ ] **Step 3: Реализовать `ExcelImportProperties`**
 
 ```java
-package io.github.excelimport.spring;
+package org.novgorodtsev.excelimport.spring;
 
-import io.github.excelimport.ConflictStrategy;
-import io.github.excelimport.ImportConfig;
+import org.novgorodtsev.excelimport.ConflictStrategy;
+import org.novgorodtsev.excelimport.ImportConfig;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -10459,15 +10459,15 @@ public class ExcelImportProperties {
 - [ ] **Step 4: Реализовать `ExcelImporterFactory`**
 
 ```java
-package io.github.excelimport.spring;
+package org.novgorodtsev.excelimport.spring;
 
-import io.github.excelimport.ExcelImporter;
-import io.github.excelimport.ImportConfig;
-import io.github.excelimport.ImportListener;
-import io.github.excelimport.SqlErrorClassifier;
-import io.github.excelimport.convert.CellConverter;
-import io.github.excelimport.report.ReportRowCustomizer;
-import io.github.excelimport.validate.BatchValidator;
+import org.novgorodtsev.excelimport.ExcelImporter;
+import org.novgorodtsev.excelimport.ImportConfig;
+import org.novgorodtsev.excelimport.ImportListener;
+import org.novgorodtsev.excelimport.SqlErrorClassifier;
+import org.novgorodtsev.excelimport.convert.CellConverter;
+import org.novgorodtsev.excelimport.report.ReportRowCustomizer;
+import org.novgorodtsev.excelimport.validate.BatchValidator;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -10571,14 +10571,14 @@ public class ExcelImporterFactory {
 - [ ] **Step 5: Реализовать автоконфигурацию**
 
 ```java
-package io.github.excelimport.spring;
+package org.novgorodtsev.excelimport.spring;
 
-import io.github.excelimport.ImportConfig;
-import io.github.excelimport.ImportListener;
-import io.github.excelimport.SqlErrorClassifier;
-import io.github.excelimport.convert.CellConverter;
-import io.github.excelimport.report.ReportRowCustomizer;
-import io.github.excelimport.validate.BatchValidator;
+import org.novgorodtsev.excelimport.ImportConfig;
+import org.novgorodtsev.excelimport.ImportListener;
+import org.novgorodtsev.excelimport.SqlErrorClassifier;
+import org.novgorodtsev.excelimport.convert.CellConverter;
+import org.novgorodtsev.excelimport.report.ReportRowCustomizer;
+import org.novgorodtsev.excelimport.validate.BatchValidator;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
@@ -10622,7 +10622,7 @@ public class ExcelImportAutoConfiguration {
 `excel-import-spring-boot-starter/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`:
 
 ```
-io.github.excelimport.spring.ExcelImportAutoConfiguration
+org.novgorodtsev.excelimport.spring.ExcelImportAutoConfiguration
 ```
 
 Замечание по конвертерам: автоматически подхватить `CellConverter` бины нельзя — целевой тип поля из бина не выводится, а `@ExcelColumn(converter = ...)` уже покрывает явный случай. Поэтому карта пуста, а регистрация по типу остаётся ручной через `ExcelImporterFactory.create(type, config)` + `ExcelImporter.builder(...).converter(...)`. Это сознательное ограничение starter'а, а не недоделка.

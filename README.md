@@ -19,20 +19,20 @@ SAX-стриминг не позволяет править исходный ф�
 Gradle (Kotlin DSL):
 
 ```kotlin
-implementation("io.github.excelimport:excel-import-core:0.1.0-SNAPSHOT")
+implementation("org.novgorodtsev.excelimport:excel-import-core:0.1.0-SNAPSHOT")
 ```
 
 Для Spring Boot — одна зависимость на стартер, ядро подтянется транзитивно:
 
 ```kotlin
-implementation("io.github.excelimport:excel-import-spring-boot-starter:0.1.0-SNAPSHOT")
+implementation("org.novgorodtsev.excelimport:excel-import-spring-boot-starter:0.1.0-SNAPSHOT")
 ```
 
 Maven:
 
 ```xml
 <dependency>
-    <groupId>io.github.excelimport</groupId>
+    <groupId>org.novgorodtsev.excelimport</groupId>
     <artifactId>excel-import-core</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
@@ -40,7 +40,7 @@ Maven:
 
 ```xml
 <dependency>
-    <groupId>io.github.excelimport</groupId>
+    <groupId>org.novgorodtsev.excelimport</groupId>
     <artifactId>excel-import-spring-boot-starter</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
@@ -299,7 +299,7 @@ try (ExcelImporter<EmployeeRow> importer = importerFactory.create(EmployeeRow.cl
    Сообщения берутся из `ValidationMessages.properties`; локаль задаётся
    `ImportConfig.locale` (русские сообщения входят в поставку).
 
-   Бандл библиотеки специально называется `io.github.excelimport.ValidationMessages`, а
+   Бандл библиотеки специально называется `org.novgorodtsev.excelimport.ValidationMessages`, а
    **не** `ValidationMessages` в корне classpath — так он не конфликтует с одноимённым
    бандлом потребителя (`ResourceBundle` резолвит бандл целиком, а не по ключам: два
    бандла с одинаковым именем на classpath — и один молча "проигрывает"). Порядок
@@ -498,5 +498,5 @@ Gradle 8.12 (wrapper закоммичен), multi-project, Java 17 (toolchain):
 ```
 
 Компиляция с `-Xlint:all -Werror` — предупреждение ломает сборку. Публичный API —
-пакет `io.github.excelimport` и подпакеты, **кроме** `io.github.excelimport.internal.*`
+пакет `org.novgorodtsev.excelimport` и подпакеты, **кроме** `org.novgorodtsev.excelimport.internal.*`
 (приватный, без гарантий совместимости).

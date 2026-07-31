@@ -50,10 +50,10 @@ Gradle 8.12 (Kotlin DSL), multi-project, wrapper закоммичен — исп
 ./gradlew performanceTest    # перф-тесты, в check НЕ входит, maxHeap=256m, запускается вручную
 
 # один тест (любой из вариантов):
-./gradlew test --tests "io.github.excelimport.internal.write.SqlBuilderTest"
+./gradlew test --tests "org.novgorodtsev.excelimport.internal.write.SqlBuilderTest"
 ./gradlew test --tests "*SqlBuilderTest"
 # один метод:
-./gradlew test --tests "io.github.excelimport.internal.write.SqlBuilderTest" --tests "*.buildsMultiRowInsert*"
+./gradlew test --tests "org.novgorodtsev.excelimport.internal.write.SqlBuilderTest" --tests "*.buildsMultiRowInsert*"
 # то же для других source sets:
 ./gradlew integrationTest --tests "*ExcelImporterIT"
 ```
@@ -98,8 +98,8 @@ Gradle 8.12 (Kotlin DSL), multi-project, wrapper закоммичен — исп
 
 ## Ключевые конвенции (не очевидны из кода, важны)
 
-- **Граница публичного API.** Публичный контракт — пакет `io.github.excelimport` и его
-  подпакеты, **кроме** `io.github.excelimport.internal.*` (приватный, без гарантий
+- **Граница публичного API.** Публичный контракт — пакет `org.novgorodtsev.excelimport` и его
+  подпакеты, **кроме** `org.novgorodtsev.excelimport.internal.*` (приватный, без гарантий
   совместимости). Не тащите типы из `internal` в публичные сигнатуры и наоборот.
   Обратите внимание на пары: SPI-интерфейс публичен (`outcome/RowOutcomeStore`,
   `validate/BatchValidator`, `report/ReportRowCustomizer`, `SqlErrorClassifier`), а

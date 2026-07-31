@@ -32,7 +32,7 @@ Java-объекты, валидирует их и вставляет в PostgreS
 - Java 17, сборка Gradle (Kotlin DSL), multi-project.
 - Ядро не зависит от Spring и от драйвера PostgreSQL (драйвер — `compileOnly` +
   `testImplementation`; в рантайме приходит через `DataSource` потребителя).
-- Публичный API — пакет `io.github.excelimport`; всё под `...internal.*` считается
+- Публичный API — пакет `org.novgorodtsev.excelimport`; всё под `...internal.*` считается
   приватным и не покрывается гарантиями совместимости.
 
 ### 2.1 Структура сборки Gradle
