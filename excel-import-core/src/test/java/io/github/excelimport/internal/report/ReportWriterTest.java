@@ -65,7 +65,7 @@ class ReportWriterTest {
         Path target = tempDir.resolve("report.xlsx");
         try (RowOutcomeStore store = outcomes()) {
             new ReportWriter(new PoiStreamingSheetReader(), style, customizer)
-                    .write(source(), SheetSelector.first(), ReadOptions.defaults(), store,
+                    .write(source(), SheetSelector.first(), ReadOptions.defaults(), 0, 1, store,
                             report(target), target);
         }
         return target;
@@ -237,7 +237,7 @@ class ReportWriterTest {
             }
             store.seal();
             new ReportWriter(new PoiStreamingSheetReader(), ReportStyle.defaults(), null)
-                    .write(source, SheetSelector.first(), ReadOptions.defaults(), store,
+                    .write(source, SheetSelector.first(), ReadOptions.defaults(), 0, 1, store,
                             report(target), target);
         }
 
@@ -287,7 +287,7 @@ class ReportWriterTest {
             }
             store.seal();
             new ReportWriter(new PoiStreamingSheetReader(), ReportStyle.defaults(), null, 4)
-                    .write(source, SheetSelector.first(), ReadOptions.defaults(), store,
+                    .write(source, SheetSelector.first(), ReadOptions.defaults(), 0, 1, store,
                             report(target), target);
         }
 
@@ -329,7 +329,7 @@ class ReportWriterTest {
         try (RowOutcomeStore store = outcomes()) {
             assertThatThrownBy(() -> new ReportWriter(
                             new PoiStreamingSheetReader(), ReportStyle.defaults(), failing)
-                            .write(source(), SheetSelector.first(), ReadOptions.defaults(), store,
+                            .write(source(), SheetSelector.first(), ReadOptions.defaults(), 0, 1, store,
                                     report(target), target))
                     .isInstanceOf(ReportGenerationException.class);
         }

@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
+import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -47,6 +48,28 @@ class ExcelImporterIT {
         public Integer years;
 
         public Employee() {}
+    }
+
+    /** Тот же маппинг, но заголовок в третьей строке: до него титул и пустая строка. */
+    @ExcelSheet(name = "Лист1", headerRow = 2)
+    @TargetTable(name = "employee")
+    public static class EmployeeWithTitle {
+        @ExcelColumn(header = "Номер")
+        @Column("personnel_no")
+        @NotNull
+        public Long personnelNo;
+
+        @ExcelColumn(header = "ФИО")
+        @Column("full_name")
+        @NotBlank
+        public String fullName;
+
+        @ExcelColumn(header = "Стаж")
+        @Column("years")
+        @Min(0)
+        public Integer years;
+
+        public EmployeeWithTitle() {}
     }
 
     @TempDir
@@ -221,6 +244,68 @@ class ExcelImporterIT {
 
             assertThat(report.status()).isEqualTo(ImportStatus.SUCCESS);
             assertThat(PostgresSupport.countRows("employee")).isZero();
+        }
+    }
+
+    /**
+     * Второй проход обязан использовать ту же геометрию строк, что и первый: строки до
+     * заголовка копируются как есть, заголовком считается строка {@code headerRow}, а
+     * разметка исходов начинается с {@code firstDataRow}. Иначе первая же встреченная
+     * строка (титул) принимается за заголовок, колонки статуса/причины съезжают влево и
+     * затирают настоящие данные — молча, без исключения.
+     */
+    @Test
+    void reportHonoursHeaderRowOffset() throws Exception {
+        Path file = fixture(new Object[][] {
+            {"Отчёт по сотрудникам"}, // титул: одна ячейка
+            {null}, // строка есть в файле, но пустая
+            {"Номер", "ФИО", "Стаж"},
+            {1, "Иванов", 3},
+            {2, "", 5}, // NotBlank — строка отклоняется
+        });
+        Path reportPath = tempDir.resolve("report-with-title.xlsx");
+
+        try (ExcelImporter<EmployeeWithTitle> excelImporter =
+                ExcelImporter.builder(EmployeeWithTitle.class)
+                        .dataSource(dataSource)
+                        .config(ImportConfig.builder().reportPath(reportPath).build())
+                        .build()) {
+            ImportReport report = excelImporter.importFile(file);
+
+            assertThat(report.totalRows()).isEqualTo(2);
+            assertThat(report.insertedRows()).isEqualTo(1);
+            assertThat(report.rejectedRows()).isEqualTo(1);
+        }
+
+        try (Workbook workbook = new XSSFWorkbook(Files.newInputStream(reportPath))) {
+            Sheet sheet = workbook.getSheetAt(0);
+
+            // титул скопирован как есть и не размечен как строка данных
+            Row title = sheet.getRow(0);
+            assertThat(title.getCell(0).getStringCellValue()).isEqualTo("Отчёт по сотрудникам");
+            assertThat(title.getCell(3)).isNull();
+            assertThat(title.getCell(4)).isNull();
+
+            // настоящий заголовок остался заголовком: все исходные колонки на месте
+            Row header = sheet.getRow(2);
+            assertThat(header.getCell(0).getStringCellValue()).isEqualTo("Номер");
+            assertThat(header.getCell(1).getStringCellValue()).isEqualTo("ФИО");
+            assertThat(header.getCell(2).getStringCellValue()).isEqualTo("Стаж");
+            assertThat(header.getCell(3).getStringCellValue()).isEqualTo("Статус импорта");
+            assertThat(header.getCell(4).getStringCellValue()).isEqualTo("Причина");
+
+            // строки данных сохранили каждую исходную колонку и размечены верно
+            Row inserted = sheet.getRow(3);
+            assertThat(inserted.getCell(0).getNumericCellValue()).isEqualTo(1.0);
+            assertThat(inserted.getCell(1).getStringCellValue()).isEqualTo("Иванов");
+            assertThat(inserted.getCell(2).getNumericCellValue()).isEqualTo(3.0);
+            assertThat(inserted.getCell(3).getStringCellValue()).isEqualTo("Загружено");
+
+            Row rejected = sheet.getRow(4);
+            assertThat(rejected.getCell(0).getNumericCellValue()).isEqualTo(2.0);
+            assertThat(rejected.getCell(2).getNumericCellValue()).isEqualTo(5.0);
+            assertThat(rejected.getCell(3).getStringCellValue()).isEqualTo("Ошибка");
+            assertThat(rejected.getCell(4).getStringCellValue()).contains("ФИО");
         }
     }
 

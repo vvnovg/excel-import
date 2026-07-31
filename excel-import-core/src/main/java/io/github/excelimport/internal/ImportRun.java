@@ -305,7 +305,14 @@ public final class ImportRun<T> {
         outcomes.seal();
         try {
             reportWriter.write(
-                    source, model.sheet(), readOptions, outcomes, report, config.reportPath());
+                    source,
+                    model.sheet(),
+                    readOptions,
+                    model.headerRowIndex(),
+                    model.firstDataRowIndex(),
+                    outcomes,
+                    report,
+                    config.reportPath());
             return config.reportPath();
         } catch (ReportGenerationException e) {
             log.warn("импорт выполнен, но отчёт не сформирован: {}", e.getMessage());

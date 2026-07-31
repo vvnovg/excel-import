@@ -60,6 +60,10 @@ public final class ReportWriter {
     }
 
     /**
+     * @param headerRowIndex 0-based индекс строки заголовка — тот же, что использовал первый
+     *     проход; строки до него копируются в отчёт без разметки
+     * @param firstDataRowIndex 0-based индекс первой строки данных; строки между заголовком
+     *     и им тоже копируются без разметки
      * @param target путь к отчёту; файл появляется целиком, атомарным переименованием
      * @throws ReportGenerationException если отчёт не удалось записать
      */
@@ -67,6 +71,8 @@ public final class ReportWriter {
             Path source,
             SheetSelector sheet,
             ReadOptions readOptions,
+            int headerRowIndex,
+            int firstDataRowIndex,
             RowOutcomeStore outcomes,
             ImportReport report,
             Path target) {
@@ -75,7 +81,8 @@ public final class ReportWriter {
         // отдельный dispose() не нужен и deprecated
         try (SXSSFWorkbook workbook = new SXSSFWorkbook(FLUSH_WINDOW)) {
             workbook.setCompressTempFiles(true);
-            Writer writer = new Writer(workbook, outcomes, report);
+            Writer writer =
+                    new Writer(workbook, outcomes, report, headerRowIndex, firstDataRowIndex);
             // отчёт читает исходник как есть: пустые строки не пропускаем,
             // чтобы нумерация в отчёте совпадала с оригиналом
             ReadOptions reportOptions = new ReadOptions(
@@ -122,19 +129,28 @@ public final class ReportWriter {
         private final RowOutcomeStore outcomes;
         private final ImportReport report;
         private final ReportStyleCache styles;
+        private final int headerRowIndex;
+        private final int firstDataRowIndex;
 
         private SXSSFSheet sheet;
         private int sheetOrdinal;
         private int rowsInSheet;
         private int statusColumn = -1;
         private int reasonColumn = -1;
-        private boolean headerWritten;
+        private int headerOutputRow = -1;
         private RawRow headerSource;
 
-        Writer(SXSSFWorkbook workbook, RowOutcomeStore outcomes, ImportReport report) {
+        Writer(
+                SXSSFWorkbook workbook,
+                RowOutcomeStore outcomes,
+                ImportReport report,
+                int headerRowIndex,
+                int firstDataRowIndex) {
             this.workbook = workbook;
             this.outcomes = outcomes;
             this.report = report;
+            this.headerRowIndex = headerRowIndex;
+            this.firstDataRowIndex = firstDataRowIndex;
             this.styles = new ReportStyleCache(workbook, style);
             newSheet();
         }
@@ -146,12 +162,31 @@ public final class ReportWriter {
                     : style.reportSheetNamePrefix() + " " + sheetOrdinal;
             sheet = workbook.createSheet(name);
             rowsInSheet = 0;
-            headerWritten = false;
+            headerOutputRow = -1;
         }
 
+        /**
+         * Геометрия строк здесь ровно та же, что в первом проходе (см. {@code ImportRun}):
+         * до {@code headerRowIndex} — служебные строки (титул, пояснения), сам
+         * {@code headerRowIndex} — заголовок, а размечать исходами можно только строки
+         * начиная с {@code firstDataRowIndex}. Без этого первая же строка файла принималась
+         * бы за заголовок, и колонки статуса/причины затирали бы настоящие данные.
+         */
         void onRow(RawRow source) {
-            if (!headerWritten) {
-                writeHeader(source);
+            int index = source.rowIndex();
+            if (index < headerRowIndex) {
+                writeVerbatimRow(source);
+                return;
+            }
+            if (index == headerRowIndex) {
+                headerSource = source;
+                writeHeaderRow(source);
+                return;
+            }
+            // строки между заголовком и первой строкой данных импорт не обрабатывал —
+            // копируем их как есть, без статуса и причины
+            if (index < firstDataRowIndex || headerSource == null) {
+                writeVerbatimRow(source);
                 return;
             }
             if (rowsInSheet >= maxRowsPerSheet - 1) {
@@ -162,10 +197,12 @@ public final class ReportWriter {
             writeDataRow(source);
         }
 
-        private void writeHeader(RawRow source) {
-            headerSource = source;
-            writeHeaderRow(source);
-            headerWritten = true;
+        /** Копирует строку без колонок статуса/причины: она не участвовала в импорте. */
+        private void writeVerbatimRow(RawRow source) {
+            SXSSFRow row = sheet.createRow(rowsInSheet++);
+            for (int column = 0; column <= source.lastColumnIndex(); column++) {
+                copyValue(row.createCell(column), source.cell(column), null);
+            }
         }
 
         /** Пишет заголовок: исходные ячейки + статус/причина. На всех листах один и тот же. */
@@ -174,6 +211,7 @@ public final class ReportWriter {
             statusColumn = lastColumn + 1;
             reasonColumn = lastColumn + 2;
 
+            headerOutputRow = rowsInSheet;
             SXSSFRow row = sheet.createRow(rowsInSheet++);
             for (int column = 0; column <= lastColumn; column++) {
                 copyValue(row.createCell(column), source.cell(column), null);
@@ -181,7 +219,8 @@ public final class ReportWriter {
             row.createCell(statusColumn).setCellValue(style.statusColumnHeader());
             row.createCell(reasonColumn).setCellValue(style.reasonColumnHeader());
 
-            sheet.createFreezePane(0, 1);
+            // закрепляем всё до заголовка включительно, а не всегда одну верхнюю строку
+            sheet.createFreezePane(0, headerOutputRow + 1);
             invokeCustomizer(() -> {
                 if (customizer != null) {
                     customizer.customizeHeader(row, this);
@@ -251,8 +290,11 @@ public final class ReportWriter {
         }
 
         private void finishSheet() {
-            if (rowsInSheet > 1 && statusColumn >= 0) {
-                sheet.setAutoFilter(new CellRangeAddress(0, rowsInSheet - 1, 0, reasonColumn));
+            // автофильтр вешается на заголовок и данные под ним, а не на служебные
+            // строки над заголовком
+            if (headerOutputRow >= 0 && rowsInSheet > headerOutputRow + 1 && statusColumn >= 0) {
+                sheet.setAutoFilter(
+                        new CellRangeAddress(headerOutputRow, rowsInSheet - 1, 0, reasonColumn));
             }
         }
 
