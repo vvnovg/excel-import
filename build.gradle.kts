@@ -1,6 +1,6 @@
 plugins {
     `java-library`
-    `maven-publish`
+    alias(libs.plugins.maven.publish) apply false
 }
 
 allprojects {
@@ -10,7 +10,7 @@ allprojects {
 
 subprojects {
     apply(plugin = "java-library")
-    apply(plugin = "maven-publish")
+    apply(plugin = "com.vanniktech.maven.publish")
 
     java {
         toolchain {
@@ -46,25 +46,38 @@ subprojects {
         "testRuntimeOnly"(rootProject.libs.junit.platform.launcher)
     }
 
-    publishing {
-        publications {
-            create<MavenPublication>("maven") {
-                from(components["java"])
-                pom {
-                    name.set(project.name)
-                    description.set("Streaming Excel to PostgreSQL importer")
-                    licenses {
-                        license {
-                            name.set("The Apache License, Version 2.0")
-                            url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
-                        }
-                    }
-                    scm {
-                        url.set("https://github.com/vvnovg/excel-import")
-                    }
+    // Публикация в Maven Central (Sonatype Central Portal) через com.vanniktech.maven.publish.
+    // Плагин сам применяет maven-publish и подпись; учётные данные (mavenCentralUsername/
+    // mavenCentralPassword, signing*) читаются из project properties / ~/.gradle/gradle.properties,
+    // в репозитории их быть не должно.
+    extensions.configure<com.vanniktech.maven.publish.MavenPublishBaseExtension> {
+        coordinates(project.group.toString(), project.name, project.version.toString())
+        pom {
+            name.set(project.name)
+            description.set("Streaming Excel to PostgreSQL importer")
+            url.set("https://github.com/vvnovg/excel-import")
+            licenses {
+                license {
+                    name.set("The Apache License, Version 2.0")
+                    url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                    distribution.set("repo")
                 }
             }
+            developers {
+                developer {
+                    id.set("vvnovg")
+                    name.set("Viacheslav Novgorodtsev")
+                    url.set("https://github.com/vvnovg")
+                }
+            }
+            scm {
+                url.set("https://github.com/vvnovg/excel-import")
+                connection.set("scm:git:https://github.com/vvnovg/excel-import.git")
+                developerConnection.set("scm:git:git@github.com:vvnovg/excel-import.git")
+            }
         }
+        signAllPublications()
+        publishToMavenCentral(automaticRelease = false)
     }
 }
 

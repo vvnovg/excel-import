@@ -12,6 +12,7 @@ spring-boot = "3.4.13"
 logback = "1.5.38"
 log4j-to-slf4j = "2.25.3"
 h2 = "2.3.232"
+maven-publish-vanniktech = "0.37.0"
 
 [libraries]
 poi = { module = "org.apache.poi:poi", version.ref = "poi" }
@@ -35,3 +36,6 @@ spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-star
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 log4j-to-slf4j = { module = "org.apache.logging.log4j:log4j-to-slf4j", version.ref = "log4j-to-slf4j" }
 h2 = { module = "com.h2database:h2", version.ref = "h2" }
+
+[plugins]
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish-vanniktech" }
