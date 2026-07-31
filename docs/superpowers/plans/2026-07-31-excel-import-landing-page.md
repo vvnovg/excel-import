@@ -13,7 +13,7 @@
 - Отдельный репозиторий по абсолютному пути `/Users/vvnovg/projects/excel-import-site` (создаётся в Task 1).
 - Канонический домен `https://novgorodtsev.org`; RU на `/ru/`, EN на `/`.
 - Версия библиотеки в сниппетах — единая константа `SITE_VERSION = "0.1.0"` в `src/i18n/content.ts`.
-- GitHub URL — `https://github.com/excelimport/excel-import` (источник: `build.gradle.kts:63` репо `excel-import`; пользователь при необходимости правит).
+- GitHub URL — `https://github.com/vvnovg/excel-import` (источник: `build.gradle.kts:63` репо `excel-import`; пользователь при необходимости правит).
 - Кодировка UTF-8, `lang` по локали, контрасты WCAG AA, `prefers-color-scheme` для тёмной/светлой темы.
 - Никакого SSR, никакого UI-фреймворка, никаких аналитик-скриптов.
 - Каждый коммит — в репозитории `excel-import-site` (не в `excel-import`).
@@ -382,7 +382,7 @@ export const ui = {
 
 ```ts
 export const SITE_VERSION = '0.1.0';
-export const GITHUB_URL = 'https://github.com/excelimport/excel-import';
+export const GITHUB_URL = 'https://github.com/vvnovg/excel-import';
 
 export const content = {
   version: SITE_VERSION,
@@ -963,7 +963,7 @@ npm run preview
 ```markdown
 # excel-import-site
 
-Двуязычный (EN/RU) лендинг библиотеки [excel-import](https://github.com/excelimport/excel-import).
+Двуязычный (EN/RU) лендинг библиотеки [excel-import](https://github.com/vvnovg/excel-import).
 Astro + Cloudflare Pages, домен novgorodtsev.org.
 
 ## Разработка

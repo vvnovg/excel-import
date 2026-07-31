@@ -60,7 +60,7 @@ subprojects {
                         }
                     }
                     scm {
-                        url.set("https://github.com/excelimport/excel-import")
+                        url.set("https://github.com/vvnovg/excel-import")
                     }
                 }
             }
