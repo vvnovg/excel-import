@@ -36,4 +36,12 @@ public @interface ExcelColumn {
 
     /** Свой конвертер. {@code CellConverter.None.class} означает «выбрать по типу поля». */
     Class<? extends CellConverter<?>> converter() default CellConverter.None.class;
+
+    /**
+     * Участвует ли поле во вставке. {@code false} — колонка читается из файла и валидируется,
+     * но в {@code INSERT} не попадает: так объявляют ключ поиска, которого нет в
+     * таблице-приёмнике (например email владельца, который {@code BatchValidator} превращает
+     * в внешний ключ). Несовместимо с {@code @Column} на том же поле.
+     */
+    boolean insertable() default true;
 }

@@ -80,17 +80,21 @@ public final class MappingModel<T> {
         return dbOnlyColumns;
     }
 
-    /** Имена колонок БД в порядке вставки: сначала excel-привязанные, потом db-only. */
+    /**
+     * Имена колонок БД в порядке вставки: сначала excel-привязанные, потом db-only.
+     * Поля {@code @ExcelColumn(insertable = false)} читаются из файла, но во вставку не идут
+     * и в этот список не попадают.
+     */
     public List<String> allDbColumns() {
         List<String> names = new ArrayList<>(excelColumns.size() + dbOnlyColumns.size());
-        excelColumns.forEach(binding -> names.add(binding.dbColumn()));
-        dbOnlyColumns.forEach(binding -> names.add(binding.dbColumn()));
+        allBindings().forEach(binding -> names.add(binding.dbColumn()));
         return List.copyOf(names);
     }
 
-    /** Все привязки в том же порядке, что {@link #allDbColumns()}. */
+    /** Все вставляемые привязки в том же порядке, что {@link #allDbColumns()}. */
     public List<ColumnBinding> allBindings() {
-        List<ColumnBinding> all = new ArrayList<>(excelColumns);
+        List<ColumnBinding> all = new ArrayList<>(excelColumns.size() + dbOnlyColumns.size());
+        excelColumns.stream().filter(ColumnBinding::insertable).forEach(all::add);
         all.addAll(dbOnlyColumns);
         return List.copyOf(all);
     }

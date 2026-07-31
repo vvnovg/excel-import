@@ -8,6 +8,7 @@ import java.util.Objects;
 /**
  * Привязка одного поля класса к колонке Excel и/или колонке БД.
  * Для полей «только БД» {@code headerName} и {@code columnIndex} равны null.
+ * Для полей «только Excel» ({@code @ExcelColumn(insertable = false)}) {@code dbColumn} равен null.
  */
 public record ColumnBinding(
         String fieldName,
@@ -25,7 +26,6 @@ public record ColumnBinding(
 
     public ColumnBinding {
         Objects.requireNonNull(fieldName, "fieldName");
-        Objects.requireNonNull(dbColumn, "dbColumn");
         Objects.requireNonNull(fieldType, "fieldType");
         Objects.requireNonNull(setter, "setter");
         Objects.requireNonNull(getter, "getter");
@@ -35,6 +35,11 @@ public record ColumnBinding(
     /** true, если поле читается из файла. */
     public boolean boundToExcel() {
         return headerName != null || columnIndex != null;
+    }
+
+    /** true, если поле участвует во вставке. */
+    public boolean insertable() {
+        return dbColumn != null;
     }
 
     /** Отображаемое имя колонки для сообщений об ошибках. */

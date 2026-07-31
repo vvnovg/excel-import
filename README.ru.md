@@ -173,10 +173,28 @@ public record ImportReport(
 | | `trim` | `true` | Обрезать пробелы по краям |
 | | `emptyAsNull` | `true` | Пустую строку считать `null` |
 | | `converter` | по типу поля | Класс своего `CellConverter` |
+| | `insertable` | `true` | `false` — колонка читается и валидируется, но в `INSERT` не идёт |
 | `@Column` (на поле) | `value` | — | Имя колонки в БД; без аннотации выводится через `NamingStrategy` (по умолчанию `snake_case`) |
 
 Поля без `@ExcelColumn` игнорируются при чтении. Поле с `@Column`, но без
 `@ExcelColumn`, участвует во вставке — значение туда может положить `BatchValidator`.
+
+`insertable = false` — вторая половина этой пары: поле читается из файла и
+валидируется, но до таблицы-приёмника не доходит. Так объявляют ключ поиска, который
+есть только в файле (например email владельца), а `BatchValidator` превращает его во
+внешний ключ, который в таблице есть:
+
+```java
+@ExcelColumn(header = "Email владельца", insertable = false)
+@NotBlank @Email
+private String ownerEmail;      // читается из файла, не вставляется
+
+@Column("owner_id")
+private UUID ownerId;           // заполняет BatchValidator, вставляется
+```
+
+`insertable = false` вместе с `@Column` на одном поле противоречивы и отвергаются при
+сборке импортёра — как и класс, у которого невставляемы все колонки.
 
 Все индексы в аннотациях и конфигурации — 0-based (как в POI). Всё, что видит
 пользователь (`RowError.rowNum`, сообщения, Excel-отчёт), — 1-based, как в Excel.

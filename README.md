@@ -175,11 +175,29 @@ Each `RowError` carries `rowNum` (1-based, as in Excel), `columnHeader`, `rawVal
 | | `trim` | `true` | Trim surrounding whitespace |
 | | `emptyAsNull` | `true` | Treat empty string as `null` |
 | | `converter` | by field type | A custom `CellConverter` class |
+| | `insertable` | `true` | `false` — read and validate the column, but keep it out of the `INSERT` |
 | `@Column` (on field) | `value` | — | DB column name; without the annotation it is derived via `NamingStrategy` (`SNAKE_CASE` by default) |
 
 Fields without `@ExcelColumn` are ignored when reading. A field with `@Column` but
 without `@ExcelColumn` participates in the insert — a `BatchValidator` may place a
 value into it.
+
+`insertable = false` is the other half of that pair: the field is read from the file
+and validated, but never reaches the target table. Use it for a lookup key that only
+exists in the file — an owner's email, say — which a `BatchValidator` resolves into
+the foreign key that *is* in the table:
+
+```java
+@ExcelColumn(header = "Owner e-mail", insertable = false)
+@NotBlank @Email
+private String ownerEmail;      // read from the file, not inserted
+
+@Column("owner_id")
+private UUID ownerId;           // filled in by the BatchValidator, inserted
+```
+
+`insertable = false` and `@Column` on the same field contradict each other and are
+rejected at build time, as is a class whose every column is non-insertable.
 
 All indices in annotations and configuration are 0-based (as in POI). Everything the
 user sees (`RowError.rowNum`, messages, the Excel report) is 1-based, as in Excel.

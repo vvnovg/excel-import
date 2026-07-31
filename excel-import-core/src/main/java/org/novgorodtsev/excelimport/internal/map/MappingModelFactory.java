@@ -59,10 +59,20 @@ public final class MappingModelFactory {
             if (excel == null && column == null) {
                 continue;
             }
-            String dbColumn = column != null ? column.value() : naming.toColumnName(field.getName());
-            if (!seenDbColumns.add(dbColumn)) {
+            boolean insertable = excel == null || excel.insertable();
+            if (!insertable && column != null) {
                 throw new MappingConfigurationException(
-                        "колонка БД " + dbColumn + " привязана более одного раза в " + type.getName());
+                        "на " + type.getName() + "." + field.getName()
+                                + " одновременно заданы @Column и @ExcelColumn(insertable = false);"
+                                + " уберите одно из двух");
+            }
+            String dbColumn = null;
+            if (insertable) {
+                dbColumn = column != null ? column.value() : naming.toColumnName(field.getName());
+                if (!seenDbColumns.add(dbColumn)) {
+                    throw new MappingConfigurationException(
+                            "колонка БД " + dbColumn + " привязана более одного раза в " + type.getName());
+                }
             }
             ColumnBinding binding = buildBinding(type, field, excel, dbColumn, lookup);
             if (binding.boundToExcel()) {
@@ -75,6 +85,11 @@ public final class MappingModelFactory {
         if (excelColumns.isEmpty()) {
             throw new MappingConfigurationException(
                     "в классе " + type.getName() + " нет ни одного @ExcelColumn");
+        }
+        if (seenDbColumns.isEmpty()) {
+            throw new MappingConfigurationException(
+                    "в классе " + type.getName() + " нет ни одной вставляемой колонки:"
+                            + " все поля помечены insertable = false");
         }
 
         return new MappingModel<>(

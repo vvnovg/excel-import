@@ -149,6 +149,63 @@ class MappingModelFactoryTest {
     }
 
     @ExcelSheet(name = "S")
+    @TargetTable(name = "employee")
+    static class LookupKeyOnly {
+        @ExcelColumn(header = "ФИО")
+        @Column("full_name")
+        String fullName;
+
+        @ExcelColumn(header = "Email руководителя", insertable = false)
+        String managerEmail; // ключ поиска: есть в файле, но не в таблице-приёмнике
+
+        @Column("manager_id")
+        String managerId; // сюда BatchValidator кладёт разрешённый ключ
+    }
+
+    @Test
+    void nonInsertableColumnIsReadButKeptOutOfTheInsert() {
+        MappingModel<LookupKeyOnly> model =
+                MappingModelFactory.create(LookupKeyOnly.class, NamingStrategy.SNAKE_CASE);
+
+        assertThat(model.excelColumns())
+                .extracting(ColumnBinding::fieldName)
+                .containsExactly("fullName", "managerEmail");
+        assertThat(model.allDbColumns()).containsExactly("full_name", "manager_id");
+        assertThat(model.allBindings())
+                .extracting(ColumnBinding::fieldName)
+                .containsExactly("fullName", "managerId");
+    }
+
+    @ExcelSheet(name = "S")
+    static class NonInsertableWithColumn {
+        @ExcelColumn(header = "A", insertable = false)
+        @Column("a")
+        String a;
+    }
+
+    @Test
+    void nonInsertableColumnWithColumnAnnotationIsRejected() {
+        assertThatThrownBy(() ->
+                        MappingModelFactory.create(NonInsertableWithColumn.class, NamingStrategy.SNAKE_CASE))
+                .isInstanceOf(MappingConfigurationException.class)
+                .hasMessageContaining("insertable = false");
+    }
+
+    @ExcelSheet(name = "S")
+    static class AllNonInsertable {
+        @ExcelColumn(header = "A", insertable = false)
+        String a;
+    }
+
+    @Test
+    void classWithoutAnyInsertableColumnIsRejected() {
+        assertThatThrownBy(() ->
+                        MappingModelFactory.create(AllNonInsertable.class, NamingStrategy.SNAKE_CASE))
+                .isInstanceOf(MappingConfigurationException.class)
+                .hasMessageContaining("вставляемой колонки");
+    }
+
+    @ExcelSheet(name = "S")
     static class NoExcelColumns {
         @Column("x")
         String x;
