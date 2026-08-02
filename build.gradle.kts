@@ -5,7 +5,7 @@ plugins {
 
 allprojects {
     group = "org.novgorodtsev.excelimport"
-    version = "0.1.0-SNAPSHOT"
+    version = "0.1.0"
 }
 
 subprojects {
@@ -16,8 +16,9 @@ subprojects {
         toolchain {
             languageVersion.set(JavaLanguageVersion.of(17))
         }
-        withSourcesJar()
-        withJavadocJar()
+        // sources- и javadoc-jar создаёт плагин com.vanniktech.maven.publish
+        // (задачи plainSourcesJar / plainJavadocJar) — ручные withSourcesJar()/withJavadocJar()
+        // здесь не нужны и конфликтуют с ними дублирующим выходным файлом.
     }
 
     tasks.withType<JavaCompile>().configureEach {
