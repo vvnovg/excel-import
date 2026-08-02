@@ -157,6 +157,28 @@ Each `RowError` carries `rowNum` (1-based, as in Excel), `columnHeader`, `rawVal
 `RowError`. Only fatal conditions propagate outward: `FileStructureException`,
 `ImportAbortedException`, `ReportGenerationException`.
 
+## A worked example
+
+[pet-marketplace](https://github.com/vvnovg/pet-marketplace) imports animal listings with this
+library. Its [`application/imports`](https://github.com/vvnovg/pet-marketplace/tree/main/src/main/java/com/petmarketplace/application/imports)
+module is a whole working setup rather than a snippet, and it covers the parts that are easy to
+get wrong:
+
+- [`AnimalImportRow`](https://github.com/vvnovg/pet-marketplace/blob/main/src/main/java/com/petmarketplace/application/imports/AnimalImportRow.java)
+  — the row model. Shows a lookup key that exists only in the file
+  (`@ExcelColumn(insertable = false)`), a DB-only field supplying the primary key the target
+  table has no default for, and why the enum column is mapped as a `String`.
+- [`OwnerValidationBatchValidator`](https://github.com/vvnovg/pet-marketplace/blob/main/src/main/java/com/petmarketplace/application/imports/OwnerValidationBatchValidator.java)
+  — a `BatchValidator` resolving that e-mail into a foreign key with one query per batch, and
+  rejecting the rows whose owner does not exist.
+- [`GenderCellConverter`](https://github.com/vvnovg/pet-marketplace/blob/main/src/main/java/com/petmarketplace/application/imports/convert/GenderCellConverter.java)
+  — a `CellConverter` attached to a single field.
+- [`AnimalImportService`](https://github.com/vvnovg/pet-marketplace/blob/main/src/main/java/com/petmarketplace/application/imports/AnimalImportService.java)
+  — assembling the importer, streaming the file out of object storage, and storing the report.
+- [`AnimalImportIntegrationTest`](https://github.com/vvnovg/pet-marketplace/blob/main/src/test/java/com/petmarketplace/application/imports/AnimalImportIntegrationTest.java)
+  — a 100 000-row workbook imported against a real PostgreSQL, asserting the counters, the rows
+  written and the report.
+
 ## Annotations
 
 | Annotation | Attribute | Default | Meaning |

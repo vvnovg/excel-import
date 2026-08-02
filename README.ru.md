@@ -155,6 +155,28 @@ public record ImportReport(
 исключения — только попадают в `RowError`. Наружу идут только фатальные:
 `FileStructureException`, `ImportAbortedException`, `ReportGenerationException`.
 
+## Пример из реального проекта
+
+Библиотекой импортирует объявления о животных [pet-marketplace](https://github.com/vvnovg/pet-marketplace).
+Его модуль [`application/imports`](https://github.com/vvnovg/pet-marketplace/tree/main/src/main/java/com/petmarketplace/application/imports)
+— не фрагмент, а рабочая обвязка целиком, и в ней разобраны места, на которых проще всего
+споткнуться:
+
+- [`AnimalImportRow`](https://github.com/vvnovg/pet-marketplace/blob/main/src/main/java/com/petmarketplace/application/imports/AnimalImportRow.java)
+  — модель строки. Ключ поиска, которого нет в таблице-приёмнике
+  (`@ExcelColumn(insertable = false)`), поле «только БД» с первичным ключом, которого таблица
+  сама не выдаёт, и почему enum-колонка отображена как `String`.
+- [`OwnerValidationBatchValidator`](https://github.com/vvnovg/pet-marketplace/blob/main/src/main/java/com/petmarketplace/application/imports/OwnerValidationBatchValidator.java)
+  — `BatchValidator`, превращающий тот email во внешний ключ одним запросом на батч и
+  отбраковывающий строки с незарегистрированным владельцем.
+- [`GenderCellConverter`](https://github.com/vvnovg/pet-marketplace/blob/main/src/main/java/com/petmarketplace/application/imports/convert/GenderCellConverter.java)
+  — `CellConverter`, привязанный к одному полю.
+- [`AnimalImportService`](https://github.com/vvnovg/pet-marketplace/blob/main/src/main/java/com/petmarketplace/application/imports/AnimalImportService.java)
+  — сборка импортёра, чтение файла потоком из объектного хранилища и сохранение отчёта.
+- [`AnimalImportIntegrationTest`](https://github.com/vvnovg/pet-marketplace/blob/main/src/test/java/com/petmarketplace/application/imports/AnimalImportIntegrationTest.java)
+  — книга на 100 000 строк, импортируемая в настоящий PostgreSQL, с проверкой счётчиков,
+  записанных строк и отчёта.
+
 ## Аннотации
 
 | Аннотация | Атрибут | По умолчанию | Смысл |
